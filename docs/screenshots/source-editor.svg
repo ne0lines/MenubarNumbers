@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101522"/><stop offset="1" stop-color="#1c2436"/></linearGradient></defs>
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <rect x="56" y="48" width="1328" height="804" rx="22" fill="#f7f8fb"/>
+  <rect x="56" y="48" width="1328" height="64" rx="22" fill="#ffffff"/>
+  <circle cx="88" cy="80" r="8" fill="#ff605c"/><circle cx="114" cy="80" r="8" fill="#ffbd44"/><circle cx="140" cy="80" r="8" fill="#00ca4e"/>
+  <text x="190" y="87" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="22" font-weight="700" fill="#172033">MenubarNumbers</text>
+  <rect x="82" y="140" width="1276" height="52" rx="10" fill="#e8edf7"/><rect x="86" y="144" width="628" height="44" rx="8" fill="#ffffff"/>
+  <text x="350" y="173" font-family="-apple-system,sans-serif" font-size="16" font-weight="600" fill="#34425c">Sources</text><text x="1010" y="173" font-family="-apple-system,sans-serif" font-size="16" fill="#68758c">Menu Bar</text>
+  <rect x="82" y="218" width="310" height="602" rx="14" fill="#ffffff" stroke="#e1e5ee"/>
+  <text x="108" y="260" font-family="-apple-system,sans-serif" font-size="20" font-weight="700" fill="#172033">API Sources</text><circle cx="344" cy="253" r="16" fill="#4263eb"/><text x="338" y="260" font-family="-apple-system,sans-serif" font-size="22" fill="white">+</text>
+  <rect x="100" y="288" width="274" height="54" rx="9" fill="#eaf0ff"/><circle cx="125" cy="315" r="8" fill="#27ae60"/><text x="148" y="321" font-family="-apple-system,sans-serif" font-size="16" font-weight="600" fill="#1d2b4d">Market Data</text>
+  <text x="148" y="370" font-family="-apple-system,sans-serif" font-size="16" fill="#526078">Weather API</text><text x="148" y="420" font-family="-apple-system,sans-serif" font-size="16" fill="#526078">Build Monitor</text>
+  <rect x="420" y="218" width="906" height="602" rx="14" fill="#ffffff" stroke="#e1e5ee"/>
+  <text x="458" y="267" font-family="-apple-system,sans-serif" font-size="25" font-weight="700" fill="#172033">Market Data</text><text x="458" y="300" font-family="-apple-system,sans-serif" font-size="14" fill="#68758c">Connected · last update 12 seconds ago</text>
+  <text x="458" y="354" font-family="-apple-system,sans-serif" font-size="13" font-weight="700" fill="#68758c">BASE URL</text><rect x="458" y="370" width="820" height="46" rx="8" fill="#f3f5f9"/><text x="478" y="399" font-family="-apple-system,sans-serif" font-size="16" fill="#27344c">https://api.example.com/markets</text>
+  <rect x="458" y="446" width="104" height="38" rx="8" fill="#eaf0ff"/><text x="491" y="471" font-family="-apple-system,sans-serif" font-size="15" font-weight="600" fill="#3557c7">GET</text><text x="600" y="471" font-family="-apple-system,sans-serif" font-size="15" fill="#526078">Bearer token · every 60 seconds</text>
+  <rect x="458" y="518" width="820" height="112" rx="10" fill="#f7f8fb" stroke="#dce3f0"/><text x="482" y="551" font-family="-apple-system,sans-serif" font-size="15" font-weight="700" fill="#34425c">Credentials</text><text x="482" y="583" font-family="-apple-system,sans-serif" font-size="15" fill="#526078">● Stored securely in macOS Keychain</text><text x="482" y="610" font-family="-apple-system,sans-serif" font-size="14" fill="#8792a5">The request configuration stores only a reference.</text>
+  <rect x="1092" y="682" width="186" height="48" rx="10" fill="#4263eb"/><text x="1134" y="712" font-family="-apple-system,sans-serif" font-size="16" font-weight="700" fill="white">Save &amp; Test</text>
+</svg>

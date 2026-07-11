@@ -1,0 +1,67 @@
+name: Release macOS app
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish macOS release
+    runs-on: macos-14
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          xcodebuild test \
+            -project MenubarNumbers.xcodeproj \
+            -scheme MenubarNumbers \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build unsigned app
+        run: |
+          xcodebuild build \
+            -project MenubarNumbers.xcodeproj \
+            -scheme MenubarNumbers \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/derived-data" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package app as DMG
+        id: package
+        shell: bash
+        run: |
+          app="$RUNNER_TEMP/derived-data/Build/Products/Release/MenubarNumbers.app"
+          staging="$RUNNER_TEMP/MenubarNumbers-dmg-root"
+          dmg="$RUNNER_TEMP/MenubarNumbers-${GITHUB_SHA::7}.dmg"
+          rm -rf "$staging"
+          mkdir -p "$staging"
+          ditto "$app" "$staging/MenubarNumbers.app"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create \
+            -volname "MenubarNumbers" \
+            -srcfolder "$staging" \
+            -ov \
+            -format UDZO \
+            "$dmg"
+          shasum -a 256 "$dmg" | tee "$dmg.sha256"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v0.1.0-${{ github.run_number }}"
+          name: "MenubarNumbers v0.1.0 build ${{ github.run_number }}"
+          generate_release_notes: true
+          files: |
+            ${{ steps.package.outputs.dmg }}
+            ${{ steps.package.outputs.dmg }}.sha256
