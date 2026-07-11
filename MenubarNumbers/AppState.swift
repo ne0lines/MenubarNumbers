@@ -20,16 +20,34 @@ final class AppState: ObservableObject {
     private let sourcesKey = "sources.v1"
     private let layoutKey = "menuBarLayout.v1"
     private let pendingSecureCleanupKey = "pendingSecureValueCleanup.v1"
+    private let streamDeckHistoryURL: URL
+    private let streamDeckDiscoveryURL: URL
+    private let now: () -> Date
     private var pendingSecureCleanupReferences: Set<UUID>
     private var requestGenerations = SourceRequestGenerations()
     private var pollingConfigurationGeneration: UInt64 = 0
+    private var streamDeckSubscriptions = StreamDeckSubscriptionRegistry()
+    private var streamDeckSelections: Set<StreamDeckSelection> = []
+    private var streamDeckHistory: StreamDeckHistoryStore
+    private var streamDeckExpiryTask: Task<Void, Never>?
+    private var streamDeckServer: StreamDeckLoopbackServer?
     private lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
         await self?.refresh(source)
     }
 
-    init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
+    init(
+        defaults: UserDefaults = .standard,
+        secureStore: KeychainStore = KeychainStore(),
+        applicationSupportDirectory: URL? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
+        let supportDirectory = applicationSupportDirectory ?? Self.defaultApplicationSupportDirectory()
         self.defaults = defaults
         self.secureStore = secureStore
+        self.now = now
+        streamDeckHistoryURL = supportDirectory.appendingPathComponent("streamdeck-history.json")
+        streamDeckDiscoveryURL = supportDirectory.appendingPathComponent("streamdeck-bridge.json")
+        streamDeckHistory = StreamDeckHistoryStore.load(from: streamDeckHistoryURL)
         client = APIClient(secureValueStore: secureStore)
         sources = Self.load([APISource].self, from: defaults, key: "sources.v1") ?? []
         layout = Self.load(MenuBarLayout.self, from: defaults, key: "menuBarLayout.v1") ?? MenuBarLayout()
@@ -78,6 +96,8 @@ final class AppState: ObservableObject {
         selectedSourceID = sources.first?.id
         do {
             try persistConfiguration()
+            streamDeckHistory.remove(sourceID: source.id)
+            persistStreamDeckHistory()
             retrySecureValueCleanup()
         } catch {
             sources = originalSources
@@ -193,6 +213,84 @@ final class AppState: ObservableObject {
         }
     }
 
+    func startStreamDeckBridge() async {
+        guard streamDeckServer == nil else { return }
+        let backend = StreamDeckBridgeController(state: self)
+        let server = StreamDeckLoopbackServer(discoveryURL: streamDeckDiscoveryURL, backend: backend)
+        streamDeckServer = server
+        do {
+            _ = try await server.start()
+        } catch {
+            if streamDeckServer === server {
+                streamDeckServer = nil
+            }
+        }
+    }
+
+    func stopStreamDeckBridge() {
+        streamDeckExpiryTask?.cancel()
+        streamDeckExpiryTask = nil
+        streamDeckServer?.stop()
+        streamDeckServer = nil
+    }
+
+    func streamDeckSources() -> [StreamDeckSourceSummary] {
+        sources.map { source in
+            StreamDeckSourceSummary(
+                id: source.id,
+                name: source.name,
+                isEnabled: source.isEnabled,
+                hasResponse: latestResponses[source.id] != nil,
+                lastSuccess: lastSuccess[source.id],
+                error: errors[source.id]
+            )
+        }
+    }
+
+    func refreshForStreamDeck(sourceID: UUID) async {
+        guard let source = sources.first(where: { $0.id == sourceID && $0.isEnabled }) else { return }
+        await refresh(source)
+    }
+
+    func streamDeckFields(sourceID: UUID) -> [StreamDeckScalarField] {
+        guard let response = latestResponses[sourceID] else { return [] }
+        return StreamDeckScalarCatalogue.fields(sourceID: sourceID, response: response)
+    }
+
+    func replaceStreamDeckSubscriptions(clientID: String, selections: Set<StreamDeckSelection>) {
+        let timestamp = now()
+        let previousSourceIDs = Set(streamDeckSelections.map(\.sourceID))
+        streamDeckSubscriptions.replace(clientID: clientID, selections: selections, now: timestamp)
+        streamDeckSelections = streamDeckSubscriptions.activeSelections(now: timestamp)
+        streamDeckHistory.markReferenced(
+            Set(streamDeckSelections.filter { $0.displayMode == .sparkline }),
+            at: timestamp
+        )
+        streamDeckHistory.prune(inactiveBefore: timestamp.addingTimeInterval(-7 * 24 * 60 * 60))
+        persistStreamDeckHistory()
+        if previousSourceIDs != Set(streamDeckSelections.map(\.sourceID)) {
+            rebuildPolling()
+        }
+        scheduleStreamDeckExpiry()
+    }
+
+    func streamDeckSnapshots(selections: Set<StreamDeckSelection>) -> [StreamDeckSnapshot] {
+        selections
+            .sorted {
+                ($0.sourceID.uuidString, $0.jsonPointer, $0.displayMode.rawValue)
+                    < ($1.sourceID.uuidString, $1.jsonPointer, $1.displayMode.rawValue)
+            }
+            .map { selection in
+                StreamDeckSnapshotBuilder.snapshot(
+                    selection: selection,
+                    response: latestResponses[selection.sourceID],
+                    history: streamDeckHistory.samples(for: selection),
+                    isStale: errors[selection.sourceID] != nil,
+                    updatedAt: lastSuccess[selection.sourceID]
+                )
+            }
+    }
+
     private func save(_ draft: SourceDraft) throws -> APISource {
         retrySecureValueCleanup()
         let oldSource = sources.first { $0.id == draft.id }
@@ -248,9 +346,17 @@ final class AppState: ObservableObject {
             let response = try await client.fetch(source: source)
             guard requestGenerations.isCurrent(generation, for: source.id),
                   sources.contains(source) else { return }
+            let timestamp = now()
             latestResponses[source.id] = response
-            lastSuccess[source.id] = .now
+            lastSuccess[source.id] = timestamp
             errors[source.id] = nil
+            streamDeckHistory.record(
+                response: response,
+                sourceID: source.id,
+                selections: streamDeckSelections,
+                timestamp: timestamp
+            )
+            persistStreamDeckHistory()
         } catch {
             guard requestGenerations.isCurrent(generation, for: source.id),
                   sources.contains(source) else { return }
@@ -262,7 +368,9 @@ final class AppState: ObservableObject {
         pollingConfigurationGeneration &+= 1
         let generation = pollingConfigurationGeneration
         let sourceSnapshot = sources
-        let activeSourceIDs = Set(layout.items.map(\.sourceID))
+        let menuBarSourceIDs = Set(layout.items.map(\.sourceID))
+        let streamDeckSourceIDs = Set(streamDeckSelections.map(\.sourceID))
+        let activeSourceIDs = menuBarSourceIDs.union(streamDeckSourceIDs)
         let coordinator = pollingCoordinator
         Task { [weak self] in
             guard let self, self.pollingConfigurationGeneration == generation else { return }
@@ -294,6 +402,27 @@ final class AppState: ObservableObject {
         defaults.set(pendingSecureCleanupReferences.map(\.uuidString), forKey: pendingSecureCleanupKey)
     }
 
+    private func scheduleStreamDeckExpiry() {
+        streamDeckExpiryTask?.cancel()
+        streamDeckExpiryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 31_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.expireStreamDeckSubscriptions()
+        }
+    }
+
+    private func expireStreamDeckSubscriptions() {
+        let previousSourceIDs = Set(streamDeckSelections.map(\.sourceID))
+        streamDeckSelections = streamDeckSubscriptions.activeSelections(now: now())
+        if previousSourceIDs != Set(streamDeckSelections.map(\.sourceID)) {
+            rebuildPolling()
+        }
+    }
+
+    private func persistStreamDeckHistory() {
+        try? streamDeckHistory.save(to: streamDeckHistoryURL)
+    }
+
     private func safeMessage(for error: Error) -> String {
         (error as? APIClientError)?.errorDescription ?? "The connection could not be completed."
     }
@@ -301,6 +430,12 @@ final class AppState: ObservableObject {
     private static func load<T: Decodable>(_ type: T.Type, from defaults: UserDefaults, key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func defaultApplicationSupportDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return base.appendingPathComponent("MenubarNumbers", isDirectory: true)
     }
 }
 

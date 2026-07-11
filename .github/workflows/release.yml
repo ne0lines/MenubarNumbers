@@ -1,4 +1,4 @@
-name: Release macOS app
+name: Release macOS app and Stream Deck plugin
 
 on:
   push:
@@ -11,12 +11,19 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish macOS release
+    name: Build and publish release
     runs-on: macos-15
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: streamdeck/package-lock.json
 
       - name: Run tests
         run: |
@@ -56,6 +63,18 @@ jobs:
           shasum -a 256 "$dmg" | tee "$dmg.sha256"
           echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
 
+      - name: Test and package Stream Deck plugin
+        id: streamdeck
+        working-directory: streamdeck
+        shell: bash
+        run: |
+          npm ci
+          npm test
+          npm run pack
+          plugin="$PWD/dist/com.davidhermansson.menubarnumbers.streamDeckPlugin"
+          shasum -a 256 "$plugin" | tee "$plugin.sha256"
+          echo "plugin=$plugin" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -65,3 +84,5 @@ jobs:
           files: |
             ${{ steps.package.outputs.dmg }}
             ${{ steps.package.outputs.dmg }}.sha256
+            ${{ steps.streamdeck.outputs.plugin }}
+            ${{ steps.streamdeck.outputs.plugin }}.sha256
