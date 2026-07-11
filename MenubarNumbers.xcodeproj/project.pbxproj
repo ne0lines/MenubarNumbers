@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05A703A1ED97845C0533D570 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6676640AA91EA28EB0F08E2 /* APIClient.swift */; };
 		06B5A9E1E0C0AD2A55BB8C2A /* CoreModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A305B610B5D77D9AD1767FBA /* CoreModule.swift */; };
+		08325FD7C81334C09BD5881E /* StreamDeckBridgeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BFCB137E58962DB9BC788D5 /* StreamDeckBridgeController.swift */; };
 		0C8E14815EAF2485EACC128A /* JSONValueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B596F6B3B379D9AA75E4165 /* JSONValueTests.swift */; };
 		26977A873F147AEB82603D56 /* MenuBarTextRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D228448B50C73D48D3059D /* MenuBarTextRenderer.swift */; };
 		2D487D8E35B0018DE81F6BE7 /* MenuBarBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A2F1E1A42DF0A4F02C7DDE /* MenuBarBuilderView.swift */; };
@@ -97,6 +98,7 @@
 		7773316108CF94C6A45F98B8 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
 		88EAB048A5DBA04B6C121F00 /* StreamDeckLoopbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckLoopbackServer.swift; sourceTree = "<group>"; };
+		8BFCB137E58962DB9BC788D5 /* StreamDeckBridgeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckBridgeController.swift; sourceTree = "<group>"; };
 		9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckSubscriptionRegistry.swift; sourceTree = "<group>"; };
 		95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStoreTests.swift; sourceTree = "<group>"; };
 		9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckBridgeModels.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 				A0A2F1E1A42DF0A4F02C7DDE /* MenuBarBuilderView.swift */,
 				E8E518374225E27214407542 /* MenubarNumbersApp.swift */,
 				018B1DC7C981DD38C20E0B13 /* SourceEditorView.swift */,
+				8BFCB137E58962DB9BC788D5 /* StreamDeckBridgeController.swift */,
 			);
 			path = MenubarNumbers;
 			sourceTree = "<group>";
@@ -328,6 +331,7 @@
 				2D487D8E35B0018DE81F6BE7 /* MenuBarBuilderView.swift in Sources */,
 				BD0685232C75D41C0F62F561 /* MenubarNumbersApp.swift in Sources */,
 				A4791E957FAC5D67A1486FAE /* SourceEditorView.swift in Sources */,
+				08325FD7C81334C09BD5881E /* StreamDeckBridgeController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -10,6 +10,10 @@ struct MenubarNumbersApp: App {
         WindowGroup("MenubarNumbers") {
             ContentView(state: state)
                 .frame(minWidth: 980, minHeight: 680)
+                .task {
+                    appDelegate.onTerminate = { state.stopStreamDeckBridge() }
+                    await state.startStreamDeckBridge()
+                }
         }
 
         MenuBarExtra(state.menuBarText, systemImage: "chart.bar") {
@@ -33,7 +37,13 @@ struct MenubarNumbersApp: App {
 }
 
 final class MenubarNumbersAppDelegate: NSObject, NSApplicationDelegate {
+    var onTerminate: (() -> Void)?
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        onTerminate?()
+    }
 }
 
 struct ContentView: View {

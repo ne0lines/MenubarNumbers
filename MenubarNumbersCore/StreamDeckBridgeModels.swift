@@ -181,3 +181,39 @@ public enum StreamDeckScalarCatalogue {
         return raw.replacingOccurrences(of: "~1", with: "/").replacingOccurrences(of: "~0", with: "~")
     }
 }
+
+public enum StreamDeckSnapshotBuilder {
+    public static func snapshot(
+        selection: StreamDeckSelection,
+        response: JSONValue?,
+        history: [StreamDeckHistorySample],
+        isStale: Bool,
+        updatedAt: Date?
+    ) -> StreamDeckSnapshot {
+        guard let response,
+              let field = StreamDeckScalarCatalogue.field(
+                sourceID: selection.sourceID,
+                pointer: selection.jsonPointer,
+                response: response
+              ) else {
+            return StreamDeckSnapshot(
+                selection: selection,
+                type: nil,
+                value: nil,
+                numericValue: nil,
+                history: [],
+                status: .missing,
+                updatedAt: updatedAt
+            )
+        }
+        return StreamDeckSnapshot(
+            selection: selection,
+            type: field.type,
+            value: field.value,
+            numericValue: field.numericValue,
+            history: selection.displayMode == .sparkline ? history : [],
+            status: isStale ? .stale : .fresh,
+            updatedAt: updatedAt
+        )
+    }
+}

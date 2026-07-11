@@ -37,4 +37,49 @@ final class StreamDeckBridgeModelsTests: XCTestCase {
         XCTAssertFalse(encoded.contains("authentication"))
         XCTAssertFalse(encoded.contains("credential"))
     }
+
+    func testSnapshotBuilderKeepsValueAndHistoryWhenSourceIsStale() {
+        let sourceID = UUID()
+        let selection = StreamDeckSelection(
+            sourceID: sourceID,
+            jsonPointer: "/count",
+            displayMode: .sparkline
+        )
+        let history = [StreamDeckHistorySample(timestamp: Date(timeIntervalSince1970: 5), value: 6)]
+
+        let snapshot = StreamDeckSnapshotBuilder.snapshot(
+            selection: selection,
+            response: .object(["count": .number(7)]),
+            history: history,
+            isStale: true,
+            updatedAt: Date(timeIntervalSince1970: 10)
+        )
+
+        XCTAssertEqual(snapshot.type, .number)
+        XCTAssertEqual(snapshot.value, "7")
+        XCTAssertEqual(snapshot.numericValue, 7)
+        XCTAssertEqual(snapshot.history, history)
+        XCTAssertEqual(snapshot.status, .stale)
+    }
+
+    func testSnapshotBuilderMarksMissingOrNonScalarPointers() {
+        let sourceID = UUID()
+        let selection = StreamDeckSelection(
+            sourceID: sourceID,
+            jsonPointer: "/nested",
+            displayMode: .value
+        )
+
+        let snapshot = StreamDeckSnapshotBuilder.snapshot(
+            selection: selection,
+            response: .object(["nested": .object([:])]),
+            history: [],
+            isStale: false,
+            updatedAt: nil
+        )
+
+        XCTAssertNil(snapshot.type)
+        XCTAssertNil(snapshot.value)
+        XCTAssertEqual(snapshot.status, .missing)
+    }
 }
