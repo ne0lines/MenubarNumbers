@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "MenubarNumbers",
+  "Version": "0.1.0.0",
+  "Author": "David Hermansson",
+  "Actions": [
+    {
+      "Name": "API Data",
+      "UUID": "com.davidhermansson.menubarnumbers.api-data",
+      "Icon": "imgs/actions/api-data/icon",
+      "Tooltip": "Displays a value from a MenubarNumbers API source.",
+      "PropertyInspectorPath": "ui/property-inspector.html",
+      "Controllers": ["Keypad"],
+      "DisableCaching": true,
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": false,
+      "States": [
+        {
+          "Image": "imgs/actions/api-data/key",
+          "ShowTitle": false
+        }
+      ]
+    }
+  ],
+  "Category": "MenubarNumbers",
+  "CategoryIcon": "imgs/plugin/category-icon",
+  "CodePath": "bin/plugin.js",
+  "Description": "Display live values and numeric sparklines from APIs configured in MenubarNumbers.",
+  "Icon": "imgs/plugin/marketplace",
+  "SDKVersion": 3,
+  "Software": {
+    "MinimumVersion": "7.1"
+  },
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "14"
+    }
+  ],
+  "Nodejs": {
+    "Version": "24",
+    "Debug": "enabled"
+  },
+  "UUID": "com.davidhermansson.menubarnumbers"
+}

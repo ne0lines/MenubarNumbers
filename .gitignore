@@ -4,3 +4,8 @@ DerivedData/
 .worktrees/
 xcuserdata/
 *.xcuserstate
+streamdeck/node_modules/
+streamdeck/dist/
+streamdeck/**/*.log
+streamdeck/**/*.js.map
+streamdeck/com.davidhermansson.menubarnumbers.sdPlugin/bin/
