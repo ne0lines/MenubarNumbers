@@ -24,7 +24,8 @@ public actor PollingCoordinator {
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var inFlightSourceIDs: Set<UUID> = []
     private var pendingImmediateRefresh: Set<UUID> = []
-    private var refreshCompletionWaiters: [UUID: [CheckedContinuation<Void, Never>]] = [:]
+    private var refreshCompletionWaiters: [UUID: [UUID: CheckedContinuation<Void, Never>]] = [:]
+    private var cancelledRefreshWaiterIDs: Set<UUID> = []
 
     public init(refresh: @escaping Refresh) {
         self.refresh = refresh
@@ -84,6 +85,10 @@ public actor PollingCoordinator {
         for sourceID in Array(registrations.keys) {
             cancel(sourceID)
         }
+    }
+
+    func pendingRefreshWaiterCount() -> Int {
+        refreshCompletionWaiters.values.reduce(0) { $0 + $1.count }
     }
 
     private func start(_ source: APISource, initialWork: InitialWork) {
@@ -147,15 +152,32 @@ public actor PollingCoordinator {
         inFlightSourceIDs.insert(source.id)
         await refresh(source)
         inFlightSourceIDs.remove(source.id)
-        let waiters = refreshCompletionWaiters.removeValue(forKey: source.id) ?? []
-        waiters.forEach { $0.resume() }
+        let waiters = refreshCompletionWaiters.removeValue(forKey: source.id) ?? [:]
+        waiters.values.forEach { $0.resume() }
         return true
     }
 
     private func waitForRefreshCompletion(_ sourceID: UUID) async {
         guard inFlightSourceIDs.contains(sourceID) else { return }
-        await withCheckedContinuation { continuation in
-            refreshCompletionWaiters[sourceID, default: []].append(continuation)
+        let waiterID = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if cancelledRefreshWaiterIDs.remove(waiterID) != nil || !inFlightSourceIDs.contains(sourceID) {
+                    continuation.resume()
+                } else {
+                    refreshCompletionWaiters[sourceID, default: [:]][waiterID] = continuation
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelRefreshWaiter(waiterID, sourceID: sourceID) }
+        }
+    }
+
+    private func cancelRefreshWaiter(_ waiterID: UUID, sourceID: UUID) {
+        if let continuation = refreshCompletionWaiters[sourceID]?.removeValue(forKey: waiterID) {
+            continuation.resume()
+        } else if inFlightSourceIDs.contains(sourceID) {
+            cancelledRefreshWaiterIDs.insert(waiterID)
         }
     }
 

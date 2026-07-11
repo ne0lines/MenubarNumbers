@@ -24,6 +24,20 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertFalse(generations.isCurrent(inFlightGeneration, for: sourceID))
     }
 
+    func testRequestGenerationInvalidationRejectsAnInFlightRequestBeforeSameIDSourceReplacement() {
+        let sourceID = UUID()
+        var generations = SourceRequestGenerations()
+        let requestForOldConfiguration = generations.begin(for: sourceID)
+
+        // AppState invalidates before replacing a source's metadata, so an old
+        // endpoint or credential set cannot publish into the replacement.
+        generations.invalidate(sourceID)
+        let requestForReplacement = generations.begin(for: sourceID)
+
+        XCTAssertFalse(generations.isCurrent(requestForOldConfiguration, for: sourceID))
+        XCTAssertTrue(generations.isCurrent(requestForReplacement, for: sourceID))
+    }
+
     func testDataPointDefaultsFallbackToEmDash() {
         let dataPoint = DataPoint(
             sourceID: UUID(),

@@ -16,6 +16,7 @@ final class AppState: ObservableObject {
     private let defaults: UserDefaults
     private let secureStore: KeychainStore
     private let client: APIClient
+    private let refreshGate = SourceRefreshGate()
     private let sourcesKey = "sources.v1"
     private let layoutKey = "menuBarLayout.v1"
     private let pendingSecureCleanupKey = "pendingSecureValueCleanup.v1"
@@ -211,6 +212,11 @@ final class AppState: ObservableObject {
         let originalSources = sources
         do {
             let source = try stored.makeSource()
+            if oldSource != nil {
+                // A request built from the prior source must never publish
+                // into this same-ID replacement after persistence changes.
+                requestGenerations.invalidate(source.id)
+            }
             let oldReferences = oldSource.map(secureReferences(in:)) ?? []
             // New Keychain values already exist. Queue obsolete values before
             // committing metadata, then only delete after the new metadata is durable.
@@ -234,21 +240,26 @@ final class AppState: ObservableObject {
     }
 
     private func refresh(_ source: APISource) async {
+        await refreshGate.run(source: source) { [weak self] source in
+            await self?.performRefresh(source)
+        }
+    }
+
+    private func performRefresh(_ source: APISource) async {
         let generation = requestGenerations.begin(for: source.id)
         loadingSourceIDs.insert(source.id)
+        defer { loadingSourceIDs.remove(source.id) }
         do {
             let response = try await client.fetch(source: source)
             guard requestGenerations.isCurrent(generation, for: source.id),
-                  sources.contains(where: { $0.id == source.id }) else { return }
+                  sources.contains(source) else { return }
             latestResponses[source.id] = response
             lastSuccess[source.id] = .now
             errors[source.id] = nil
-            loadingSourceIDs.remove(source.id)
         } catch {
             guard requestGenerations.isCurrent(generation, for: source.id),
-                  sources.contains(where: { $0.id == source.id }) else { return }
+                  sources.contains(source) else { return }
             errors[source.id] = safeMessage(for: error)
-            loadingSourceIDs.remove(source.id)
         }
     }
 

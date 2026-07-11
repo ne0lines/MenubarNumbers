@@ -69,7 +69,7 @@ final class PollingCoordinatorTests: XCTestCase {
         XCTAssertEqual(refreshedIDs, [original.id, original.id])
         XCTAssertEqual(intervals, [15, 30])
         await sleeper.releaseOne()
-        await Task.yield()
+        await shortDelay()
         let IDsAfterOldSleeperWakes = await recorder.ids()
         XCTAssertEqual(IDsAfterOldSleeperWakes, [original.id, original.id])
 
@@ -92,7 +92,7 @@ final class PollingCoordinatorTests: XCTestCase {
 
         await coordinator.configure(sources: [source], activeSourceIDs: [])
         await sleeper.releaseAll()
-        await Task.yield()
+        await shortDelay()
         let refreshedIDs = await recorder.ids()
         XCTAssertEqual(refreshedIDs, [source.id])
 
@@ -140,7 +140,7 @@ final class PollingCoordinatorTests: XCTestCase {
 
         await coordinator.refreshNow()
         _ = await recorder.waitForCount(2)
-        await yieldToPollingTasks()
+        await shortDelay()
 
         let intervals = await sleeper.recordedIntervals()
         XCTAssertEqual(intervals, [60, 60])
@@ -167,7 +167,7 @@ final class PollingCoordinatorTests: XCTestCase {
         _ = await refresher.waitForCount(1)
 
         await coordinator.configure(sources: [replacement], activeSourceIDs: [replacement.id])
-        await yieldToPollingTasks()
+        await shortDelay()
         let intervalsBeforeOriginalCompletes = await sleeper.recordedIntervals()
         XCTAssertEqual(intervalsBeforeOriginalCompletes, [])
 
@@ -182,6 +182,105 @@ final class PollingCoordinatorTests: XCTestCase {
 
         await coordinator.stop()
         await sleeper.releaseAll()
+    }
+
+    func testSharedRefreshGateCoalescesManualAndPollingRequestsForTheSameSource() async {
+        let gate = SourceRefreshGate()
+        let refresher = BlockingRefresher()
+        let source = source(named: "Weather")
+
+        let polling = Task {
+            await gate.run(source: source) { source in
+                await refresher.refresh(source.id)
+            }
+        }
+        _ = await refresher.waitForCount(1)
+
+        let manualRefresh = Task {
+            await gate.run(source: source) { source in
+                await refresher.refresh(source.id)
+            }
+        }
+        let testConnection = Task {
+            await gate.run(source: source) { source in
+                await refresher.refresh(source.id)
+            }
+        }
+
+        await shortDelay()
+        let startedBeforeRelease = await refresher.ids()
+        XCTAssertEqual(startedBeforeRelease, [source.id])
+        await refresher.releaseOne()
+        await polling.value
+        await manualRefresh.value
+        await testConnection.value
+        let allStarted = await refresher.ids()
+        XCTAssertEqual(allStarted, [source.id])
+    }
+
+    func testSharedRefreshGateRunsTheLatestReplacementAfterTheCurrentRequestFinishes() async {
+        let gate = SourceRefreshGate()
+        let recorder = SourceURLRecorder()
+        let original = source(named: "Rates")
+        let replacement = APISource(
+            id: original.id,
+            name: original.name,
+            request: APIRequestConfiguration(url: URL(string: "https://api.example.com/rates-v2")!)
+        )
+        let firstStarted = AsyncGate()
+        let releaseFirst = AsyncGate()
+
+        let first = Task {
+            await gate.run(source: original) { source in
+                await recorder.record(source.request.url)
+                await firstStarted.open()
+                await releaseFirst.wait()
+            }
+        }
+        await firstStarted.wait()
+        let replacementTask = Task {
+            await gate.run(source: replacement) { source in
+                await recorder.record(source.request.url)
+            }
+        }
+
+        await shortDelay()
+        let urlsBeforeRelease = await recorder.urls()
+        XCTAssertEqual(urlsBeforeRelease, [original.request.url])
+        await releaseFirst.open()
+        await first.value
+        await replacementTask.value
+        let urls = await recorder.urls()
+        XCTAssertEqual(urls, [original.request.url, replacement.request.url])
+    }
+
+    func testCancellingReplacementLoopRemovesItsRefreshCompletionWaiter() async {
+        let refresher = BlockingRefresher()
+        let coordinator = PollingCoordinator(
+            refresh: { source in await refresher.refresh(source.id) },
+            sleep: { _ in }
+        )
+        let original = source(named: "Rates")
+        let replacement = APISource(
+            id: original.id,
+            name: original.name,
+            request: APIRequestConfiguration(url: URL(string: "https://api.example.com/rates-v2")!, refreshInterval: 30)
+        )
+
+        await coordinator.configure(sources: [original], activeSourceIDs: [original.id])
+        _ = await refresher.waitForCount(1)
+        await coordinator.configure(sources: [replacement], activeSourceIDs: [replacement.id])
+        await shortDelay()
+        let waiterCount = await coordinator.pendingRefreshWaiterCount()
+        XCTAssertEqual(waiterCount, 1)
+
+        await coordinator.configure(sources: [], activeSourceIDs: [])
+        await shortDelay()
+        let waiterCountAfterCancellation = await coordinator.pendingRefreshWaiterCount()
+        XCTAssertEqual(waiterCountAfterCancellation, 0)
+
+        await refresher.releaseAll()
+        await coordinator.stop()
     }
 }
 
@@ -203,8 +302,9 @@ private actor RefreshRecorder {
     func ids() -> [UUID] { recordedIDs }
 
     func waitForCount(_ count: Int) async -> [UUID] {
-        while recordedIDs.count < count {
-            await Task.yield()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while recordedIDs.count < count, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
         }
         return recordedIDs
     }
@@ -224,8 +324,9 @@ private actor BlockingRefresher {
     func ids() -> [UUID] { recordedIDs }
 
     func waitForCount(_ count: Int) async -> [UUID] {
-        while recordedIDs.count < count {
-            await Task.yield()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while recordedIDs.count < count, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
         }
         return recordedIDs
     }
@@ -254,8 +355,9 @@ private actor BlockingSleeper {
     }
 
     func waitForIntervals(count: Int) async -> [TimeInterval] {
-        while intervals.count < count {
-            await Task.yield()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while intervals.count < count, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
         }
         return intervals
     }
@@ -274,8 +376,36 @@ private actor BlockingSleeper {
     }
 }
 
-private func yieldToPollingTasks() async {
-    for _ in 0 ..< 10 {
-        await Task.yield()
+private actor SourceURLRecorder {
+    private var recordedURLs: [URL] = []
+
+    func record(_ url: URL) { recordedURLs.append(url) }
+    func urls() -> [URL] { recordedURLs }
+}
+
+private actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func open() {
+        isOpen = true
+        let pending = waiters
+        waiters.removeAll()
+        pending.forEach { $0.resume() }
     }
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { continuation in
+            if isOpen {
+                continuation.resume()
+            } else {
+                waiters.append(continuation)
+            }
+        }
+    }
+}
+
+private func shortDelay() async {
+    try? await Task.sleep(for: .milliseconds(10))
 }
