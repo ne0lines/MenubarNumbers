@@ -1,0 +1,50 @@
+name: MenubarNumbers
+options:
+  bundleIdPrefix: com.davidhermansson
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+targets:
+  MenubarNumbersCore:
+    type: framework
+    platform: macOS
+    sources:
+      - MenubarNumbersCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidhermansson.MenubarNumbersCore
+        GENERATE_INFOPLIST_FILE: YES
+  MenubarNumbers:
+    type: application
+    platform: macOS
+    sources:
+      - MenubarNumbers
+    dependencies:
+      - target: MenubarNumbersCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidhermansson.MenubarNumbers
+        GENERATE_INFOPLIST_FILE: YES
+  MenubarNumbersCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - MenubarNumbersCoreTests
+    dependencies:
+      - target: MenubarNumbersCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.davidhermansson.MenubarNumbersCoreTests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  MenubarNumbers:
+    build:
+      targets:
+        MenubarNumbers: all
+        MenubarNumbersCoreTests: [test]
+    test:
+      targets:
+        - MenubarNumbersCoreTests
