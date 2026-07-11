@@ -1,6 +1,7 @@
 name: MenubarNumbers
 options:
   bundleIdPrefix: com.davidhermansson
+  xcodeVersion: "15.4"
   deploymentTarget:
     macOS: "14.0"
 settings:
