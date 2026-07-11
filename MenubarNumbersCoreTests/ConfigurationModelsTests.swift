@@ -88,20 +88,19 @@ final class ConfigurationModelsTests: XCTestCase {
             queryItems: [RequestQueryItem(name: "api_key", valueReference: queryReference)],
             jsonBodyReference: bodyReference
         )
-        let sentinels = ["header-secret-value", "query-secret-value", "body-secret-value"]
 
         let data = try JSONEncoder().encode(request)
-        let encoded = try XCTUnwrap(String(data: data, encoding: .utf8))
+        let jsonObject = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let encodedHeaders = try XCTUnwrap(jsonObject["headers"] as? [[String: Any]])
+        let encodedQueryItems = try XCTUnwrap(jsonObject["queryItems"] as? [[String: Any]])
 
-        XCTAssertTrue(encoded.contains("X-API-Key"))
-        XCTAssertTrue(encoded.contains("api_key"))
-        let lowercaseEncoded = encoded.lowercased()
-        XCTAssertTrue(lowercaseEncoded.contains(headerReference.uuidString.lowercased()))
-        XCTAssertTrue(lowercaseEncoded.contains(queryReference.uuidString.lowercased()))
-        XCTAssertTrue(lowercaseEncoded.contains(bodyReference.uuidString.lowercased()))
-        for sentinel in sentinels {
-            XCTAssertFalse(encoded.contains(sentinel))
-        }
+        XCTAssertEqual(Set(try XCTUnwrap(encodedHeaders.first).keys), ["name", "valueReference"])
+        XCTAssertEqual(Set(try XCTUnwrap(encodedQueryItems.first).keys), ["name", "valueReference"])
+        XCTAssertNil(jsonObject["value"])
+        XCTAssertNil(jsonObject["jsonBody"])
+
+        let decoded = try JSONDecoder().decode(APIRequestConfiguration.self, from: data)
+        XCTAssertEqual(decoded, request)
     }
 
     func testCredentialNamedRequestReferencesAreAllowed() {
