@@ -10,7 +10,9 @@
       "Icon": "imgs/actions/api-data/icon",
       "Tooltip": "Displays a value from a MenubarNumbers API source.",
       "PropertyInspectorPath": "ui/property-inspector.html",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "DisableCaching": true,
       "SupportedInMultiActions": false,
       "UserTitleEnabled": false,
