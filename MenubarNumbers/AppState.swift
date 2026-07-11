@@ -58,6 +58,7 @@ final class AppState: ObservableObject {
     func deleteSelectedSource() {
         guard let source = selectedSource else { return }
         retrySecureValueCleanup()
+        requestGenerations.invalidate(source.id)
         let originalSources = sources
         let originalLayout = layout
         let originalSelection = selectedSourceID
@@ -220,13 +221,15 @@ final class AppState: ObservableObject {
         loadingSourceIDs.insert(source.id)
         do {
             let response = try await client.fetch(source: source)
-            guard requestGenerations.isCurrent(generation, for: source.id) else { return }
+            guard requestGenerations.isCurrent(generation, for: source.id),
+                  sources.contains(where: { $0.id == source.id }) else { return }
             latestResponses[source.id] = response
             lastSuccess[source.id] = .now
             errors[source.id] = nil
             loadingSourceIDs.remove(source.id)
         } catch {
-            guard requestGenerations.isCurrent(generation, for: source.id) else { return }
+            guard requestGenerations.isCurrent(generation, for: source.id),
+                  sources.contains(where: { $0.id == source.id }) else { return }
             errors[source.id] = safeMessage(for: error)
             loadingSourceIDs.remove(source.id)
         }

@@ -17,4 +17,9 @@ public struct SourceRequestGenerations: Sendable {
     public func isCurrent(_ generation: UInt64, for sourceID: UUID) -> Bool {
         values[sourceID] == generation
     }
+
+    /// Invalidates any captured generation without starting a new request.
+    public mutating func invalidate(_ sourceID: UUID) {
+        _ = begin(for: sourceID)
+    }
 }

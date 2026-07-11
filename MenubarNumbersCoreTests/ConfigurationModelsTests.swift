@@ -14,6 +14,16 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertFalse(generations.isCurrent(second, for: UUID()))
     }
 
+    func testRequestGenerationInvalidationRejectsAnInFlightRequestAfterSourceDeletion() {
+        let sourceID = UUID()
+        var generations = SourceRequestGenerations()
+        let inFlightGeneration = generations.begin(for: sourceID)
+
+        generations.invalidate(sourceID)
+
+        XCTAssertFalse(generations.isCurrent(inFlightGeneration, for: sourceID))
+    }
+
     func testDataPointDefaultsFallbackToEmDash() {
         let dataPoint = DataPoint(
             sourceID: UUID(),
