@@ -170,6 +170,10 @@ public struct DataPoint: Identifiable, Codable, Equatable, Sendable {
     public var label: String
     public var format: String
     public var fallback: String
+    /// Nil preserves the number as received; otherwise values are rounded and
+    /// rendered with exactly this many fractional digits.
+    public var numberDecimalPlaces: Int?
+    public var dateStyle: MenuBarDateStyle
 
     public init(
         id: UUID = UUID(),
@@ -177,7 +181,9 @@ public struct DataPoint: Identifiable, Codable, Equatable, Sendable {
         jsonPointer: String,
         label: String,
         format: String = "{label} {value}",
-        fallback: String = "—"
+        fallback: String = "—",
+        numberDecimalPlaces: Int? = nil,
+        dateStyle: MenuBarDateStyle = .none
     ) {
         self.id = id
         self.sourceID = sourceID
@@ -185,7 +191,16 @@ public struct DataPoint: Identifiable, Codable, Equatable, Sendable {
         self.label = label
         self.format = format
         self.fallback = fallback
+        self.numberDecimalPlaces = numberDecimalPlaces
+        self.dateStyle = dateStyle
     }
+}
+
+public enum MenuBarDateStyle: String, Codable, CaseIterable, Sendable {
+    case none
+    case short
+    case medium
+    case long
 }
 
 public struct MenuBarLayout: Identifiable, Codable, Equatable, Sendable {

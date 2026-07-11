@@ -111,11 +111,14 @@ public enum JSONValueParsingError: Error, Equatable, LocalizedError, Sendable {
     public var errorDescription: String? { "The response cannot be represented as a JSON value." }
 }
 
-public struct JSONValueTreeNode: Equatable, Sendable {
+public struct JSONValueTreeNode: Identifiable, Equatable, Sendable {
     public let value: JSONValue
     public let label: String
     public let pointer: String
     public let children: [JSONValueTreeNode]
+
+    public var id: String { pointer }
+    public var nestedChildren: [JSONValueTreeNode]? { children.isEmpty ? nil : children }
 
     init(value: JSONValue, label: String, pointer: String) {
         self.value = value

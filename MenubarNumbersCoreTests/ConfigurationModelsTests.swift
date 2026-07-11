@@ -20,6 +20,63 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertEqual(layout.items.map(\.id), [second.id, first.id])
     }
 
+    func testMenuBarRendererUsesLayoutOrderTemplateAndSeparator() {
+        let sourceID = UUID()
+        let temperature = DataPoint(
+            sourceID: sourceID,
+            jsonPointer: "/temperature",
+            label: "Temp",
+            format: "{label}: {value}",
+            numberDecimalPlaces: 1
+        )
+        let online = DataPoint(
+            sourceID: sourceID,
+            jsonPointer: "/online",
+            label: "Online",
+            format: "{value}"
+        )
+        let layout = MenuBarLayout(separator: " | ", items: [temperature, online])
+
+        let result = MenuBarTextRenderer.render(
+            layout: layout,
+            responses: [sourceID: .object(["temperature": .number(Decimal(string: "21.25")!), "online": .bool(true)])]
+        )
+
+        XCTAssertEqual(result, "Temp: 21.3 | true")
+    }
+
+    func testMenuBarRendererUsesFallbackForMissingOrNonScalarValue() {
+        let sourceID = UUID()
+        let missing = DataPoint(sourceID: sourceID, jsonPointer: "/missing", label: "Missing", fallback: "N/A")
+        let object = DataPoint(sourceID: sourceID, jsonPointer: "/nested", label: "Nested", fallback: "—")
+        let layout = MenuBarLayout(separator: " · ", items: [missing, object])
+
+        let result = MenuBarTextRenderer.render(
+            layout: layout,
+            responses: [sourceID: .object(["nested": .object([:])])]
+        )
+
+        XCTAssertEqual(result, "Missing N/A · Nested —")
+    }
+
+    func testMenuBarRendererFormatsISO8601DateWithSelectedDateStyle() {
+        let sourceID = UUID()
+        let point = DataPoint(
+            sourceID: sourceID,
+            jsonPointer: "/updated",
+            label: "Updated",
+            format: "{value}",
+            dateStyle: .short
+        )
+
+        let result = MenuBarTextRenderer.render(
+            layout: MenuBarLayout(items: [point]),
+            responses: [sourceID: .object(["updated": .string("2026-07-11T12:30:00Z")])]
+        )
+
+        XCTAssertEqual(result, "2026-07-11")
+    }
+
     func testEncodedSourceContainsNoCredentialSecretFields() throws {
         let source = APISource(
             name: "Weather",

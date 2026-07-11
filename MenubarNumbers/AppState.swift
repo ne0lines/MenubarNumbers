@@ -1,0 +1,294 @@
+import Combine
+import Foundation
+import MenubarNumbersCore
+
+@MainActor
+final class AppState: ObservableObject {
+    @Published private(set) var sources: [APISource]
+    @Published private(set) var layout: MenuBarLayout
+    @Published var selectedSourceID: UUID?
+    @Published private(set) var latestResponses: [UUID: JSONValue] = [:]
+    @Published private(set) var lastSuccess: [UUID: Date] = [:]
+    @Published private(set) var errors: [UUID: String] = [:]
+    @Published private(set) var loadingSourceIDs: Set<UUID> = []
+
+    private let defaults: UserDefaults
+    private let secureStore: KeychainStore
+    private let client: APIClient
+    private let sourcesKey = "sources.v1"
+    private let layoutKey = "menuBarLayout.v1"
+
+    init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
+        self.defaults = defaults
+        self.secureStore = secureStore
+        client = APIClient(secureValueStore: secureStore)
+        sources = Self.load([APISource].self, from: defaults, key: "sources.v1") ?? []
+        layout = Self.load(MenuBarLayout.self, from: defaults, key: "menuBarLayout.v1") ?? MenuBarLayout()
+        selectedSourceID = sources.first?.id
+    }
+
+    var selectedSource: APISource? {
+        sources.first { $0.id == selectedSourceID }
+    }
+
+    var menuBarText: String {
+        let text = MenuBarTextRenderer.render(layout: layout, responses: latestResponses)
+        return text.isEmpty ? "MenubarNumbers" : text
+    }
+
+    func addSource() {
+        let source = APISource(
+            name: "New API",
+            request: APIRequestConfiguration(url: URL(string: "https://api.example.com")!)
+        )
+        sources.append(source)
+        selectedSourceID = source.id
+        try? persistConfiguration()
+    }
+
+    func deleteSelectedSource() {
+        guard let source = selectedSource else { return }
+        sources.removeAll { $0.id == source.id }
+        layout.items.removeAll { $0.sourceID == source.id }
+        latestResponses[source.id] = nil
+        lastSuccess[source.id] = nil
+        errors[source.id] = nil
+        selectedSourceID = sources.first?.id
+        try? persistConfiguration()
+        deleteSecureValues(referencedBy: source)
+    }
+
+    func draft(for source: APISource) -> SourceDraft {
+        SourceDraft(source: source, secureStore: secureStore)
+    }
+
+    func saveAndTest(_ draft: SourceDraft) async {
+        do {
+            let source = try save(draft)
+            await refresh(source)
+        } catch {
+            errors[draft.id] = safeMessage(for: error)
+        }
+    }
+
+    func refreshSelected() async {
+        guard let source = selectedSource else { return }
+        await refresh(source)
+    }
+
+    func refreshAll() async {
+        for source in sources where source.isEnabled {
+            await refresh(source)
+        }
+    }
+
+    func addDataPoint(sourceID: UUID, pointer: String, label: String) {
+        guard !layout.items.contains(where: { $0.sourceID == sourceID && $0.jsonPointer == pointer }) else { return }
+        layout.items.append(DataPoint(sourceID: sourceID, jsonPointer: pointer, label: label))
+        try? persistConfiguration()
+    }
+
+    func removeDataPoint(_ point: DataPoint) {
+        layout.items.removeAll { $0.id == point.id }
+        try? persistConfiguration()
+    }
+
+    func moveDataPoint(_ point: DataPoint, by offset: Int) {
+        guard let index = layout.items.firstIndex(where: { $0.id == point.id }) else { return }
+        let destination = index + offset
+        guard layout.items.indices.contains(destination) else { return }
+        layout.items.swapAt(index, destination)
+        try? persistConfiguration()
+    }
+
+    func updateDataPoint(_ id: UUID, _ update: (inout DataPoint) -> Void) {
+        guard let index = layout.items.firstIndex(where: { $0.id == id }) else { return }
+        update(&layout.items[index])
+        try? persistConfiguration()
+    }
+
+    func updateSeparator(_ separator: String) {
+        layout.separator = separator
+        try? persistConfiguration()
+    }
+
+    private func save(_ draft: SourceDraft) throws -> APISource {
+        let oldSource = sources.first { $0.id == draft.id }
+        let stored = try draft.storeSecureValues(in: secureStore)
+        do {
+            let source = try stored.makeSource()
+            if let index = sources.firstIndex(where: { $0.id == source.id }) {
+                sources[index] = source
+            } else {
+                sources.append(source)
+            }
+            try persistConfiguration()
+            if let oldSource { deleteSecureValues(referencedBy: oldSource) }
+            return source
+        } catch {
+            stored.deleteCreatedValues(in: secureStore)
+            throw error
+        }
+    }
+
+    private func refresh(_ source: APISource) async {
+        loadingSourceIDs.insert(source.id)
+        defer { loadingSourceIDs.remove(source.id) }
+        do {
+            let response = try await client.fetch(source: source)
+            latestResponses[source.id] = response
+            lastSuccess[source.id] = .now
+            errors[source.id] = nil
+        } catch {
+            errors[source.id] = safeMessage(for: error)
+        }
+    }
+
+    private func persistConfiguration() throws {
+        let encodedSources = try JSONEncoder().encode(sources)
+        let encodedLayout = try JSONEncoder().encode(layout)
+        defaults.set(encodedSources, forKey: sourcesKey)
+        defaults.set(encodedLayout, forKey: layoutKey)
+    }
+
+    private func deleteSecureValues(referencedBy source: APISource) {
+        secureReferences(in: source).forEach { try? secureStore.deleteValue(for: $0) }
+    }
+
+    private func safeMessage(for error: Error) -> String {
+        (error as? APIClientError)?.errorDescription ?? "The connection could not be completed."
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, from defaults: UserDefaults, key: String) -> T? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+}
+
+private func secureReferences(in source: APISource) -> [UUID] {
+    var references = source.request.headers.map(\.valueReference) + source.request.queryItems.map(\.valueReference)
+    if let body = source.request.jsonBodyReference { references.append(body) }
+    switch source.authentication {
+    case .none:
+        break
+    case let .bearer(reference), let .basic(reference):
+        references.append(reference)
+    case let .apiKeyHeader(_, reference), let .apiKeyQuery(_, reference):
+        references.append(reference)
+    }
+    return references
+}
+
+enum DraftAuthentication: String, CaseIterable, Identifiable {
+    case none = "None"
+    case bearer = "Bearer token"
+    case basic = "Basic auth"
+    case apiKeyHeader = "API key header"
+    case apiKeyQuery = "API key query"
+
+    var id: String { rawValue }
+}
+
+struct NamedSecret: Identifiable {
+    var id = UUID()
+    var name = ""
+    var value = ""
+}
+
+struct SourceDraft: Identifiable {
+    var id: UUID
+    var name: String
+    var endpoint: String
+    var method: HTTPMethod
+    var refreshInterval: TimeInterval
+    var isEnabled: Bool
+    var authentication: DraftAuthentication
+    var authenticationName: String
+    var authenticationValue: String
+    var headers: [NamedSecret]
+    var queryItems: [NamedSecret]
+    var jsonBody: String
+
+    init(source: APISource, secureStore: any SecureValueStore) {
+        id = source.id
+        name = source.name
+        endpoint = source.request.url.absoluteString
+        method = source.request.method
+        refreshInterval = source.request.refreshInterval
+        isEnabled = source.isEnabled
+        headers = source.request.headers.map { NamedSecret(name: $0.name, value: (try? secureStore.value(for: $0.valueReference)) ?? "") }
+        queryItems = source.request.queryItems.map { NamedSecret(name: $0.name, value: (try? secureStore.value(for: $0.valueReference)) ?? "") }
+        jsonBody = source.request.jsonBodyReference.flatMap { try? secureStore.value(for: $0) } ?? ""
+        switch source.authentication {
+        case .none:
+            authentication = .none; authenticationName = ""; authenticationValue = ""
+        case let .bearer(reference):
+            authentication = .bearer; authenticationName = ""; authenticationValue = (try? secureStore.value(for: reference)) ?? ""
+        case let .basic(reference):
+            authentication = .basic; authenticationName = ""; authenticationValue = (try? secureStore.value(for: reference)) ?? ""
+        case let .apiKeyHeader(name, reference):
+            authentication = .apiKeyHeader; authenticationName = name; authenticationValue = (try? secureStore.value(for: reference)) ?? ""
+        case let .apiKeyQuery(name, reference):
+            authentication = .apiKeyQuery; authenticationName = name; authenticationValue = (try? secureStore.value(for: reference)) ?? ""
+        }
+    }
+
+    func storeSecureValues(in store: any SecureValueStore) throws -> StoredSourceDraft {
+        var created: [UUID] = []
+        func create(_ value: String) throws -> UUID {
+            let reference = UUID()
+            try store.set(value, for: reference)
+            created.append(reference)
+            return reference
+        }
+
+        do {
+            let storedHeaders = try headers.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map {
+                RequestHeader(name: $0.name, valueReference: try create($0.value))
+            }
+            let storedQueryItems = try queryItems.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map {
+                RequestQueryItem(name: $0.name, valueReference: try create($0.value))
+            }
+            let bodyReference = jsonBody.isEmpty ? nil : try create(jsonBody)
+            let storedAuthentication: AuthenticationConfiguration
+            switch authentication {
+            case .none:
+                storedAuthentication = .none
+            case .bearer:
+                storedAuthentication = .bearer(credentialReference: try create(authenticationValue))
+            case .basic:
+                storedAuthentication = .basic(credentialReference: try create(authenticationValue))
+            case .apiKeyHeader:
+                storedAuthentication = .apiKeyHeader(name: authenticationName, credentialReference: try create(authenticationValue))
+            case .apiKeyQuery:
+                storedAuthentication = .apiKeyQuery(name: authenticationName, credentialReference: try create(authenticationValue))
+            }
+            return StoredSourceDraft(draft: self, headers: storedHeaders, queryItems: storedQueryItems, bodyReference: bodyReference, authentication: storedAuthentication, createdReferences: created)
+        } catch {
+            created.forEach { try? store.deleteValue(for: $0) }
+            throw error
+        }
+    }
+}
+
+struct StoredSourceDraft {
+    let draft: SourceDraft
+    let headers: [RequestHeader]
+    let queryItems: [RequestQueryItem]
+    let bodyReference: UUID?
+    let authentication: AuthenticationConfiguration
+    let createdReferences: [UUID]
+
+    func makeSource() throws -> APISource {
+        guard let url = URL(string: draft.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw APIClientError.invalidConfiguration
+        }
+        let request = APIRequestConfiguration(method: draft.method, url: url, headers: headers, queryItems: queryItems, jsonBodyReference: bodyReference, refreshInterval: draft.refreshInterval)
+        try request.validate()
+        return APISource(id: draft.id, name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled API" : draft.name, request: request, authentication: authentication, isEnabled: draft.isEnabled)
+    }
+
+    func deleteCreatedValues(in store: any SecureValueStore) {
+        createdReferences.forEach { try? store.deleteValue(for: $0) }
+    }
+}
