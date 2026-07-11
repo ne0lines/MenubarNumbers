@@ -170,8 +170,9 @@ public struct DataPoint: Identifiable, Codable, Equatable, Sendable {
     public var label: String
     public var format: String
     public var fallback: String
-    /// Nil preserves the number as received; otherwise values are rounded and
-    /// rendered with at most this many fractional digits.
+    /// Nil preserves the number as received; otherwise the value is scaled down
+    /// by 10 to the power of this setting and rendered with at most this many
+    /// fractional digits. For example, 12345 with 2 becomes 123.45.
     public var numberDecimalPlaces: Int?
     public var dateStyle: MenuBarDateStyle
 

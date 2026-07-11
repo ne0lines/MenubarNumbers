@@ -121,13 +121,13 @@ private struct DataPointEditor: View {
                 TextField("Fallback", text: fallbackBinding)
                     .accessibilityLabel("Menu bar fallback value")
                 HStack {
-                    Picker("Decimals", selection: decimalBinding) {
+                    Picker("Decimal scaling", selection: decimalBinding) {
                         Text("Automatic").tag(Int?.none)
                         ForEach(0...6, id: \.self) { places in
                             Text("\(places)").tag(Optional(places))
                         }
                     }
-                    .accessibilityLabel("Number decimal places")
+                    .accessibilityLabel("Number decimal scaling places")
                     Picker("Date style", selection: dateStyleBinding) {
                         ForEach(MenuBarDateStyle.allCases, id: \.self) { style in
                             Text(style.rawValue.capitalized).tag(style)

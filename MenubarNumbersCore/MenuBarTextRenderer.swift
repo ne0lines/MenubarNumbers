@@ -36,6 +36,12 @@ public enum MenuBarTextRenderer {
         guard let decimalPlaces else {
             return NSDecimalNumber(decimal: number).stringValue
         }
+        var divisor = Decimal(1)
+        for _ in 0..<max(0, decimalPlaces) {
+            divisor *= 10
+        }
+        let scaledNumber = number / divisor
+
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.numberStyle = .decimal
@@ -43,7 +49,7 @@ public enum MenuBarTextRenderer {
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = max(0, decimalPlaces)
         formatter.roundingMode = .halfUp
-        return formatter.string(from: NSDecimalNumber(decimal: number)) ?? NSDecimalNumber(decimal: number).stringValue
+        return formatter.string(from: NSDecimalNumber(decimal: scaledNumber)) ?? NSDecimalNumber(decimal: scaledNumber).stringValue
     }
 
     private static func render(dateString: String, style: MenuBarDateStyle) -> String? {

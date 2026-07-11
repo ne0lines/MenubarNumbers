@@ -75,13 +75,13 @@ final class ConfigurationModelsTests: XCTestCase {
 
         let result = MenuBarTextRenderer.render(
             layout: layout,
-            responses: [sourceID: .object(["temperature": .number(Decimal(string: "21.25")!), "online": .bool(true)])]
+            responses: [sourceID: .object(["temperature": .number(Decimal(213)), "online": .bool(true)])]
         )
 
         XCTAssertEqual(result, "Temp: 21.3 | true")
     }
 
-    func testMenuBarRendererLimitsDecimalsWithoutPaddingWithTrailingZeros() {
+    func testMenuBarRendererScalesIntegerValuesByConfiguredDecimals() {
         let sourceID = UUID()
         let point = DataPoint(
             sourceID: sourceID,
@@ -93,17 +93,17 @@ final class ConfigurationModelsTests: XCTestCase {
 
         let result = MenuBarTextRenderer.render(
             layout: MenuBarLayout(items: [point]),
-            responses: [sourceID: .object(["value": .number(Decimal(string: "12.345")!)])]
+            responses: [sourceID: .object(["value": .number(Decimal(12345))])]
         )
 
-        XCTAssertEqual(result, "12.35")
+        XCTAssertEqual(result, "123.45")
 
-        let wholeNumberResult = MenuBarTextRenderer.render(
+        let leadingZeroResult = MenuBarTextRenderer.render(
             layout: MenuBarLayout(items: [point]),
-            responses: [sourceID: .object(["value": .number(Decimal(12))])]
+            responses: [sourceID: .object(["value": .number(12)])]
         )
 
-        XCTAssertEqual(wholeNumberResult, "12")
+        XCTAssertEqual(leadingZeroResult, "0.12")
     }
 
     func testMenuBarRendererExposesEachRenderedItemForTheMenu() {
