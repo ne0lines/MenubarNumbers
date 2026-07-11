@@ -32,6 +32,8 @@ public struct RequestQueryItem: Codable, Equatable, Sendable {
 public enum APIRequestConfigurationValidationError: Error, Equatable, LocalizedError, Sendable {
     case urlContainsUserInfo
     case urlContainsQuery
+    case unsupportedURLScheme
+    case insecureHTTPHost
 
     public var errorDescription: String? {
         switch self {
@@ -39,6 +41,10 @@ public enum APIRequestConfigurationValidationError: Error, Equatable, LocalizedE
             return "Request URLs cannot include user information. Store credentials in Keychain instead."
         case .urlContainsQuery:
             return "Request URLs cannot include query items. Store each query value in Keychain instead."
+        case .unsupportedURLScheme:
+            return "Request URLs must use HTTPS, or HTTP only for a loopback host."
+        case .insecureHTTPHost:
+            return "HTTP request URLs are permitted only for localhost, 127.0.0.1, or ::1."
         }
     }
 }
@@ -76,6 +82,20 @@ public struct APIRequestConfiguration: Codable, Equatable, Sendable {
         }
         guard url.query == nil else {
             throw APIRequestConfigurationValidationError.urlContainsQuery
+        }
+        guard let scheme = url.scheme?.lowercased() else {
+            throw APIRequestConfigurationValidationError.unsupportedURLScheme
+        }
+        switch scheme {
+        case "https":
+            return
+        case "http":
+            let host = url.host?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+            guard host == "localhost" || host == "127.0.0.1" || host == "::1" else {
+                throw APIRequestConfigurationValidationError.insecureHTTPHost
+            }
+        default:
+            throw APIRequestConfigurationValidationError.unsupportedURLScheme
         }
     }
 

@@ -24,6 +24,12 @@ final class JSONValueTests: XCTestCase {
         }
     }
 
+    func testPointerSlashSelectsAnEmptyStringObjectKey() throws {
+        let json = try JSONValue.parse(Data(#"{"":"empty key"}"#.utf8))
+
+        XCTAssertEqual(try json.value(at: "/"), .string("empty key"))
+    }
+
     func testTreeRepresentationOrdersObjectChildrenByKey() throws {
         let json = try JSONValue.parse(Data(#"{"z":1,"a":true}"#.utf8))
 

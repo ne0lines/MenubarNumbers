@@ -10,8 +10,12 @@ public struct HTTPTransportResponse: Sendable {
     }
 }
 
+public enum HTTPTransportError: Error, Equatable, Sendable {
+    case responseTooLarge
+}
+
 public protocol HTTPTransport: Sendable {
-    func data(for request: URLRequest) async throws -> HTTPTransportResponse
+    func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse
 }
 
 public struct URLSessionHTTPTransport: HTTPTransport {
@@ -21,9 +25,19 @@ public struct URLSessionHTTPTransport: HTTPTransport {
         self.session = session
     }
 
-    public func data(for request: URLRequest) async throws -> HTTPTransportResponse {
-        let (data, response) = try await session.data(for: request)
+    public func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse {
+        let (bytes, response) = try await session.bytes(for: request)
         guard let response = response as? HTTPURLResponse else { throw APIClientError.network }
+        if response.expectedContentLength > Int64(maximumResponseBytes) {
+            throw HTTPTransportError.responseTooLarge
+        }
+
+        var data = Data()
+        data.reserveCapacity(min(maximumResponseBytes, 64 * 1024))
+        for try await byte in bytes {
+            guard data.count < maximumResponseBytes else { throw HTTPTransportError.responseTooLarge }
+            data.append(byte)
+        }
         return HTTPTransportResponse(statusCode: response.statusCode, data: data)
     }
 }
@@ -34,6 +48,7 @@ public enum APIClientError: Error, Equatable, LocalizedError, Sendable {
     case invalidConfiguredJSONBody
     case invalidConfiguration
     case network
+    case responseTooLarge
     case httpStatus(Int)
     case invalidJSONResponse
 
@@ -44,6 +59,7 @@ public enum APIClientError: Error, Equatable, LocalizedError, Sendable {
         case .invalidConfiguredJSONBody: return "The configured JSON body is invalid."
         case .invalidConfiguration: return "The API request configuration is invalid."
         case .network: return "The API request could not be completed."
+        case .responseTooLarge: return "The API response exceeds the 2 MiB size limit."
         case let .httpStatus(status): return "The API returned HTTP status \(status)."
         case .invalidJSONResponse: return "The API response is not valid JSON."
         }
@@ -51,6 +67,8 @@ public enum APIClientError: Error, Equatable, LocalizedError, Sendable {
 }
 
 public actor APIClient {
+    public static let maximumResponseBytes = 2 * 1024 * 1024
+
     private let transport: any HTTPTransport
     private let secureValueStore: any SecureValueStore
 
@@ -63,7 +81,9 @@ public actor APIClient {
         let request = try buildRequest(source: source)
         let response: HTTPTransportResponse
         do {
-            response = try await transport.data(for: request)
+            response = try await transport.data(for: request, maximumResponseBytes: Self.maximumResponseBytes)
+        } catch HTTPTransportError.responseTooLarge {
+            throw APIClientError.responseTooLarge
         } catch let error as APIClientError {
             throw error
         } catch {

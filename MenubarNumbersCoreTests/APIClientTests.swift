@@ -86,6 +86,33 @@ final class APIClientTests: XCTestCase {
         )
     }
 
+    func testFetchSafelyPercentEncodesReservedAndUnicodeQueryNamesAndValues() async throws {
+        let store = InMemorySecureValueStore()
+        let queryReference = UUID()
+        let name = "tag /?+&"
+        let value = "räksmörgås & +/=?"
+        try store.set(value, for: queryReference)
+        let transport = RecordingTransport(response: .json(#"{"ok":true}"#))
+        let client = APIClient(transport: transport, secureValueStore: store)
+        let source = APISource(
+            name: "Encoded query",
+            request: APIRequestConfiguration(
+                url: URL(string: "https://api.example.com/weather")!,
+                queryItems: [RequestQueryItem(name: name, valueReference: queryReference)]
+            )
+        )
+
+        _ = try await client.fetch(source: source)
+
+        let capturedRequest = await transport.lastRequest()
+        let url = try XCTUnwrap(try XCTUnwrap(capturedRequest).url)
+        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        XCTAssertEqual(components.queryItems, [URLQueryItem(name: name, value: value)])
+        XCTAssertTrue(try XCTUnwrap(components.percentEncodedQuery).contains("%20"))
+        XCTAssertTrue(try XCTUnwrap(components.percentEncodedQuery).contains("%C3%A4"))
+        XCTAssertFalse(url.absoluteString.contains(value))
+    }
+
     func testFetchResolvesAPIKeyHeaderAuthentication() async throws {
         let store = InMemorySecureValueStore()
         let apiKeyReference = UUID()
@@ -167,6 +194,49 @@ final class APIClientTests: XCTestCase {
             XCTAssertEqual(error as? APIClientError, .network)
         }
     }
+
+    func testClientCannotBuildRequestForRemoteHTTPEvenWithoutEncoding() async {
+        let client = APIClient(transport: RecordingTransport(response: .json(#"{"ok":true}"#)), secureValueStore: InMemorySecureValueStore())
+        let source = APISource(name: "Remote HTTP", request: APIRequestConfiguration(url: URL(string: "http://api.example.com/weather")!))
+
+        do {
+            _ = try await client.buildRequest(source: source)
+            XCTFail("Expected invalid configuration")
+        } catch {
+            XCTAssertEqual(error as? APIClientError, .invalidConfiguration)
+        }
+    }
+
+    func testFetchAcceptsResponseAtTwoMiBLimit() async throws {
+        let maximum = APIClient.maximumResponseBytes
+        let body = Data(("\"" + String(repeating: "x", count: maximum - 2) + "\"").utf8)
+        let transport = LimitEnforcingTransport(response: HTTPTransportResponse(statusCode: 200, data: body))
+        let client = APIClient(transport: transport, secureValueStore: InMemorySecureValueStore())
+        let source = APISource(name: "At limit", request: APIRequestConfiguration(url: URL(string: "https://api.example.com/value")!))
+
+        let value = try await client.fetch(source: source)
+
+        XCTAssertEqual(value, .string(String(repeating: "x", count: maximum - 2)))
+        let observedMaximum = await transport.lastMaximumResponseBytes()
+        XCTAssertEqual(observedMaximum, maximum)
+    }
+
+    func testFetchMapsResponseOverTwoMiBLimitToDistinctError() async {
+        let maximum = APIClient.maximumResponseBytes
+        let sentinel = "very-secret-response-content"
+        let responseData = Data(String(repeating: sentinel, count: maximum / sentinel.utf8.count + 1).utf8)
+        let transport = LimitEnforcingTransport(response: HTTPTransportResponse(statusCode: 200, data: responseData))
+        let client = APIClient(transport: transport, secureValueStore: InMemorySecureValueStore())
+        let source = APISource(name: "Over limit", request: APIRequestConfiguration(url: URL(string: "https://api.example.com/value")!))
+
+        do {
+            _ = try await client.fetch(source: source)
+            XCTFail("Expected response-too-large error")
+        } catch {
+            XCTAssertEqual(error as? APIClientError, .responseTooLarge)
+            XCTAssertFalse(error.localizedDescription.contains(sentinel))
+        }
+    }
 }
 
 private actor RecordingTransport: HTTPTransport {
@@ -177,7 +247,7 @@ private actor RecordingTransport: HTTPTransport {
         self.response = response
     }
 
-    func data(for request: URLRequest) async throws -> HTTPTransportResponse {
+    func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse {
         requests.append(request)
         return response
     }
@@ -194,7 +264,24 @@ private extension HTTPTransportResponse {
 }
 
 private struct FailingTransport: HTTPTransport {
-    func data(for request: URLRequest) async throws -> HTTPTransportResponse {
+    func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse {
         throw URLError(.notConnectedToInternet)
     }
+}
+
+private actor LimitEnforcingTransport: HTTPTransport {
+    private let response: HTTPTransportResponse
+    private var maximumResponseBytes: Int?
+
+    init(response: HTTPTransportResponse) {
+        self.response = response
+    }
+
+    func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse {
+        self.maximumResponseBytes = maximumResponseBytes
+        guard response.data.count <= maximumResponseBytes else { throw HTTPTransportError.responseTooLarge }
+        return response
+    }
+
+    func lastMaximumResponseBytes() -> Int? { maximumResponseBytes }
 }

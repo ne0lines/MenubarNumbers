@@ -113,6 +113,32 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertNoThrow(try request.validate())
     }
 
+    func testHTTPSAndExplicitLoopbackHTTPURLsArePermitted() {
+        let urls = [
+            "https://api.example.com/weather",
+            "http://localhost:8080/weather",
+            "http://127.0.0.1:8080/weather",
+            "http://[::1]:8080/weather"
+        ]
+
+        for value in urls {
+            let request = APIRequestConfiguration(url: URL(string: value)!)
+            XCTAssertNoThrow(try request.validate(), "Expected permitted URL: \(value)")
+        }
+    }
+
+    func testURLPolicyRejectsRemoteHTTPAndUnsupportedSchemes() {
+        let remoteHTTP = APIRequestConfiguration(url: URL(string: "http://api.example.com/weather")!)
+        XCTAssertThrowsError(try remoteHTTP.validate()) { error in
+            XCTAssertEqual(error as? APIRequestConfigurationValidationError, .insecureHTTPHost)
+        }
+
+        let fileURL = APIRequestConfiguration(url: URL(string: "file:///tmp/weather.json")!)
+        XCTAssertThrowsError(try fileURL.validate()) { error in
+            XCTAssertEqual(error as? APIRequestConfigurationValidationError, .unsupportedURLScheme)
+        }
+    }
+
     private func allObjectKeys(in jsonObject: Any) -> [String] {
         if let dictionary = jsonObject as? [String: Any] {
             return dictionary.flatMap { key, value in
