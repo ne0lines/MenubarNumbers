@@ -83,6 +83,26 @@ describe("PluginRuntime", () => {
 
     expect(cache.save).toHaveBeenCalledWith({ [cacheKey(selection)]: snapshot });
   });
+
+  it("does not overwrite cached data while the app waits for its first response", async () => {
+    const warmingSnapshot: StreamDeckSnapshot = {
+      selection,
+      history: [],
+      status: "missing"
+    };
+    const client = fakeClient([warmingSnapshot]);
+    const cache = memoryCache({ [cacheKey(selection)]: snapshot });
+    const runtime = new PluginRuntime(client, cache, { clientID: "test-client" });
+    const action = fakeAction("first", selection);
+    runtime.appear(action);
+    await runtime.initialize();
+
+    await runtime.cycle();
+
+    expect(cache.save).toHaveBeenCalledWith({ [cacheKey(selection)]: snapshot });
+    expect(action.setImage).toHaveBeenCalledWith(expect.stringContaining("opacity%3D%220.55%22"));
+    expect(action.setImage).toHaveBeenCalledWith(expect.stringContaining("%3E7%3C%2Ftext%3E"));
+  });
 });
 
 function fakeClient(values: StreamDeckSnapshot[]): RuntimeClient & {

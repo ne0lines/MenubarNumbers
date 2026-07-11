@@ -90,16 +90,29 @@ export class PluginRuntime {
     if (selections.length === 0) return;
     try {
       const snapshots = await this.client.snapshots(selections);
-      const received = new Map(snapshots.map((value) => [selectionKey(value.selection), value]));
+      const received = new Map<string, StreamDeckSnapshot>();
+      const warmingSelections = new Set<string>();
       for (const snapshot of snapshots) {
-        this.snapshotCache[selectionKey(snapshot.selection)] = snapshot;
+        const key = selectionKey(snapshot.selection);
+        const cached = this.snapshotCache[key];
+        if (snapshot.status === "missing" && snapshot.updatedAt === undefined && cached) {
+          received.set(key, cached);
+          warmingSelections.add(key);
+        } else {
+          received.set(key, snapshot);
+          this.snapshotCache[key] = snapshot;
+        }
       }
       await this.cache.save(this.snapshotCache);
       await Promise.all([...this.actions.values()].map(async (action) => {
         const selection = selectionFromSettings(action.settings);
         if (!selection) return;
         const snapshot = received.get(selectionKey(selection)) ?? missingSnapshot(selection);
-        await action.setImage(renderSnapshot(action.settings, snapshot, false));
+        await action.setImage(renderSnapshot(
+          action.settings,
+          snapshot,
+          warmingSelections.has(selectionKey(selection))
+        ));
       }));
     } catch {
       this.options.logError?.("MenubarNumbers snapshot refresh failed");
