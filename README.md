@@ -2,7 +2,7 @@
 
 MenubarNumbers is a native macOS menu-bar dashboard for live values from one or more REST/JSON APIs. Connect an endpoint, keep its request values in Keychain, test the response, then drag the scalar values you care about into a simulated menu bar.
 
-![MenubarNumbers source editor preview](docs/screenshots/source-editor.svg)
+![MenubarNumbers source editor screenshot](docs/screenshots/source-editor.png)
 
 ## What it does
 
@@ -14,9 +14,9 @@ MenubarNumbers is a native macOS menu-bar dashboard for live values from one or 
 - Formats numbers and dates, sets labels/templates/fallbacks, and uses the same renderer for the preview and `MenuBarExtra`.
 - Polls only enabled sources that are used by the current layout, with coalesced refreshes and no overlapping requests.
 
-![MenubarNumbers menu bar builder preview](docs/screenshots/menu-bar-builder.svg)
+![MenubarNumbers menu bar builder screenshot](docs/screenshots/menu-bar-builder.png)
 
-![MenubarNumbers menu bar output preview](docs/screenshots/menu-bar-output.svg)
+![MenubarNumbers menu bar output screenshot](docs/screenshots/menu-bar-output.png)
 
 ## Requirements
 
