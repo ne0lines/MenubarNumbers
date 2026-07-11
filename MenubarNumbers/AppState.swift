@@ -11,12 +11,16 @@ final class AppState: ObservableObject {
     @Published private(set) var lastSuccess: [UUID: Date] = [:]
     @Published private(set) var errors: [UUID: String] = [:]
     @Published private(set) var loadingSourceIDs: Set<UUID> = []
+    @Published private(set) var secureCleanupStatus: String?
 
     private let defaults: UserDefaults
     private let secureStore: KeychainStore
     private let client: APIClient
     private let sourcesKey = "sources.v1"
     private let layoutKey = "menuBarLayout.v1"
+    private let pendingSecureCleanupKey = "pendingSecureValueCleanup.v1"
+    private var pendingSecureCleanupReferences: Set<UUID>
+    private var requestGenerations = SourceRequestGenerations()
 
     init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
         self.defaults = defaults
@@ -24,7 +28,11 @@ final class AppState: ObservableObject {
         client = APIClient(secureValueStore: secureStore)
         sources = Self.load([APISource].self, from: defaults, key: "sources.v1") ?? []
         layout = Self.load(MenuBarLayout.self, from: defaults, key: "menuBarLayout.v1") ?? MenuBarLayout()
+        pendingSecureCleanupReferences = Set(
+            (defaults.stringArray(forKey: "pendingSecureValueCleanup.v1") ?? []).compactMap(UUID.init(uuidString:))
+        )
         selectedSourceID = sources.first?.id
+        retrySecureValueCleanup()
     }
 
     var selectedSource: APISource? {
@@ -37,6 +45,7 @@ final class AppState: ObservableObject {
     }
 
     func addSource() {
+        retrySecureValueCleanup()
         let source = APISource(
             name: "New API",
             request: APIRequestConfiguration(url: URL(string: "https://api.example.com")!)
@@ -48,14 +57,27 @@ final class AppState: ObservableObject {
 
     func deleteSelectedSource() {
         guard let source = selectedSource else { return }
+        retrySecureValueCleanup()
+        let originalSources = sources
+        let originalLayout = layout
+        let originalSelection = selectedSourceID
+        queueSecureReferences(secureReferences(in: source))
         sources.removeAll { $0.id == source.id }
         layout.items.removeAll { $0.sourceID == source.id }
         latestResponses[source.id] = nil
         lastSuccess[source.id] = nil
         errors[source.id] = nil
         selectedSourceID = sources.first?.id
-        try? persistConfiguration()
-        deleteSecureValues(referencedBy: source)
+        do {
+            try persistConfiguration()
+            retrySecureValueCleanup()
+        } catch {
+            sources = originalSources
+            layout = originalLayout
+            selectedSourceID = originalSelection
+            removeQueuedSecureReferences(secureReferences(in: source))
+            errors[source.id] = safeMessage(for: error)
+        }
     }
 
     func draft(for source: APISource) -> SourceDraft {
@@ -101,6 +123,18 @@ final class AppState: ObservableObject {
         try? persistConfiguration()
     }
 
+    func moveDataPoint(id: UUID, before targetID: UUID) {
+        guard id != targetID,
+              let sourceIndex = layout.items.firstIndex(where: { $0.id == id }) else { return }
+        let item = layout.items.remove(at: sourceIndex)
+        guard let targetIndex = layout.items.firstIndex(where: { $0.id == targetID }) else {
+            layout.items.insert(item, at: sourceIndex)
+            return
+        }
+        layout.items.insert(item, at: targetIndex)
+        try? persistConfiguration()
+    }
+
     func updateDataPoint(_ id: UUID, _ update: (inout DataPoint) -> Void) {
         guard let index = layout.items.firstIndex(where: { $0.id == id }) else { return }
         update(&layout.items[index])
@@ -112,35 +146,89 @@ final class AppState: ObservableObject {
         try? persistConfiguration()
     }
 
+    func retrySecureValueCleanup() {
+        guard !pendingSecureCleanupReferences.isEmpty else {
+            secureCleanupStatus = nil
+            return
+        }
+        var unresolved: Set<UUID> = []
+        let referencedByCurrentSources = Set(sources.flatMap(secureReferences(in:)))
+        for reference in pendingSecureCleanupReferences {
+            // A pending reference may have been recorded immediately before a
+            // configuration write. Never delete it while loaded metadata still
+            // points at it; a later successful mutation makes it eligible.
+            guard !referencedByCurrentSources.contains(reference) else {
+                unresolved.insert(reference)
+                continue
+            }
+            do {
+                try secureStore.deleteValue(for: reference)
+            } catch SecureValueStoreError.notFound {
+                // A missing Keychain item is already cleaned up.
+            } catch {
+                unresolved.insert(reference)
+            }
+        }
+        pendingSecureCleanupReferences = unresolved
+        persistPendingSecureCleanupReferences()
+        if unresolved.isEmpty {
+            secureCleanupStatus = nil
+        } else if unresolved.allSatisfy(referencedByCurrentSources.contains) {
+            secureCleanupStatus = "Secure cleanup is pending until the current configuration is replaced."
+        } else {
+            secureCleanupStatus = "Some old secure values could not be removed yet. They will be retried automatically."
+        }
+    }
+
     private func save(_ draft: SourceDraft) throws -> APISource {
+        retrySecureValueCleanup()
         let oldSource = sources.first { $0.id == draft.id }
-        let stored = try draft.storeSecureValues(in: secureStore)
+        let stored: StoredSourceDraft
+        do {
+            stored = try draft.storeSecureValues(in: secureStore)
+        } catch let error as SecureValueWriteError {
+            queueSecureReferences(error.createdReferences)
+            retrySecureValueCleanup()
+            throw error.underlyingError
+        }
+        let originalSources = sources
         do {
             let source = try stored.makeSource()
+            let oldReferences = oldSource.map(secureReferences(in:)) ?? []
+            // New Keychain values already exist. Queue obsolete values before
+            // committing metadata, then only delete after the new metadata is durable.
+            queueSecureReferences(oldReferences)
             if let index = sources.firstIndex(where: { $0.id == source.id }) {
                 sources[index] = source
             } else {
                 sources.append(source)
             }
             try persistConfiguration()
-            if let oldSource { deleteSecureValues(referencedBy: oldSource) }
+            retrySecureValueCleanup()
             return source
         } catch {
-            stored.deleteCreatedValues(in: secureStore)
+            sources = originalSources
+            if let oldSource { removeQueuedSecureReferences(secureReferences(in: oldSource)) }
+            queueSecureReferences(stored.createdReferences)
+            retrySecureValueCleanup()
             throw error
         }
     }
 
     private func refresh(_ source: APISource) async {
+        let generation = requestGenerations.begin(for: source.id)
         loadingSourceIDs.insert(source.id)
-        defer { loadingSourceIDs.remove(source.id) }
         do {
             let response = try await client.fetch(source: source)
+            guard requestGenerations.isCurrent(generation, for: source.id) else { return }
             latestResponses[source.id] = response
             lastSuccess[source.id] = .now
             errors[source.id] = nil
+            loadingSourceIDs.remove(source.id)
         } catch {
+            guard requestGenerations.isCurrent(generation, for: source.id) else { return }
             errors[source.id] = safeMessage(for: error)
+            loadingSourceIDs.remove(source.id)
         }
     }
 
@@ -151,8 +239,21 @@ final class AppState: ObservableObject {
         defaults.set(encodedLayout, forKey: layoutKey)
     }
 
-    private func deleteSecureValues(referencedBy source: APISource) {
-        secureReferences(in: source).forEach { try? secureStore.deleteValue(for: $0) }
+    private func queueSecureReferences(_ references: [UUID]) {
+        guard !references.isEmpty else { return }
+        pendingSecureCleanupReferences.formUnion(references)
+        persistPendingSecureCleanupReferences()
+    }
+
+    private func removeQueuedSecureReferences(_ references: [UUID]) {
+        guard !references.isEmpty else { return }
+        pendingSecureCleanupReferences.subtract(references)
+        persistPendingSecureCleanupReferences()
+        secureCleanupStatus = pendingSecureCleanupReferences.isEmpty ? nil : secureCleanupStatus
+    }
+
+    private func persistPendingSecureCleanupReferences() {
+        defaults.set(pendingSecureCleanupReferences.map(\.uuidString), forKey: pendingSecureCleanupKey)
     }
 
     private func safeMessage(for error: Error) -> String {
@@ -265,10 +366,14 @@ struct SourceDraft: Identifiable {
             }
             return StoredSourceDraft(draft: self, headers: storedHeaders, queryItems: storedQueryItems, bodyReference: bodyReference, authentication: storedAuthentication, createdReferences: created)
         } catch {
-            created.forEach { try? store.deleteValue(for: $0) }
-            throw error
+            throw SecureValueWriteError(underlyingError: error, createdReferences: created)
         }
     }
+}
+
+struct SecureValueWriteError: Error {
+    let underlyingError: Error
+    let createdReferences: [UUID]
 }
 
 struct StoredSourceDraft {
@@ -288,7 +393,4 @@ struct StoredSourceDraft {
         return APISource(id: draft.id, name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled API" : draft.name, request: request, authentication: authentication, isEnabled: draft.isEnabled)
     }
 
-    func deleteCreatedValues(in store: any SecureValueStore) {
-        createdReferences.forEach { try? store.deleteValue(for: $0) }
-    }
 }

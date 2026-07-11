@@ -2,6 +2,18 @@ import XCTest
 @testable import MenubarNumbersCore
 
 final class ConfigurationModelsTests: XCTestCase {
+    func testRequestGenerationOnlyAcceptsTheMostRecentRequestForASource() {
+        let sourceID = UUID()
+        var generations = SourceRequestGenerations()
+
+        let first = generations.begin(for: sourceID)
+        let second = generations.begin(for: sourceID)
+
+        XCTAssertFalse(generations.isCurrent(first, for: sourceID))
+        XCTAssertTrue(generations.isCurrent(second, for: sourceID))
+        XCTAssertFalse(generations.isCurrent(second, for: UUID()))
+    }
+
     func testDataPointDefaultsFallbackToEmDash() {
         let dataPoint = DataPoint(
             sourceID: UUID(),

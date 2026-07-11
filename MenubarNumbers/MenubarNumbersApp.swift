@@ -72,31 +72,45 @@ private struct SourcesWorkspace: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $state.selectedSourceID) {
-                ForEach(state.sources) { source in
-                    Label(source.name, systemImage: source.isEnabled ? "dot.radiowaves.left.and.right" : "pause.circle")
-                        .tag(source.id)
+        VStack(spacing: 0) {
+            if let cleanupStatus = state.secureCleanupStatus {
+                HStack {
+                    Label(cleanupStatus, systemImage: "key.slash")
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("Secure storage cleanup status: \(cleanupStatus)")
+                    Button("Retry secure cleanup") {
+                        state.retrySecureValueCleanup()
+                    }
+                    .accessibilityLabel("Retry secure storage cleanup")
+                    Spacer()
                 }
             }
-            .navigationTitle("API Sources")
-            .toolbar {
-                Button(action: state.addSource) {
-                    Image(systemName: "plus")
+            NavigationSplitView {
+                List(selection: $state.selectedSourceID) {
+                    ForEach(state.sources) { source in
+                        Label(source.name, systemImage: source.isEnabled ? "dot.radiowaves.left.and.right" : "pause.circle")
+                            .tag(source.id)
+                    }
                 }
-                .accessibilityLabel("Add API source")
-                Button(action: state.deleteSelectedSource) {
-                    Image(systemName: "trash")
+                .navigationTitle("API Sources")
+                .toolbar {
+                    Button(action: state.addSource) {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add API source")
+                    Button(action: state.deleteSelectedSource) {
+                        Image(systemName: "trash")
+                    }
+                    .disabled(state.selectedSource == nil)
+                    .accessibilityLabel("Delete selected API source")
                 }
-                .disabled(state.selectedSource == nil)
-                .accessibilityLabel("Delete selected API source")
-            }
-        } detail: {
-            if let source = state.selectedSource {
-                SourceEditorView(state: state, source: source)
-                    .id(source.id)
-            } else {
-                ContentUnavailableView("No API source selected", systemImage: "network", description: Text("Add a source to test an API and inspect its JSON response."))
+            } detail: {
+                if let source = state.selectedSource {
+                    SourceEditorView(state: state, source: source)
+                        .id(source.id)
+                } else {
+                    ContentUnavailableView("No API source selected", systemImage: "network", description: Text("Add a source to test an API and inspect its JSON response."))
+                }
             }
         }
     }

@@ -43,6 +43,13 @@ struct MenuBarBuilderView: View {
                 } else {
                     ForEach(state.layout.items) { point in
                         DataPointEditor(state: state, point: point)
+                            .onDrag {
+                                let token = MenuBarItemDragToken(dataPointID: point.id)
+                                return NSItemProvider(object: token.encoded as NSString)
+                            }
+                            .onDrop(of: [UTType.utf8PlainText], isTargeted: nil) { providers in
+                                acceptItemReorder(providers, before: point.id)
+                            }
                     }
                 }
             }
@@ -62,6 +69,27 @@ struct MenuBarBuilderView: View {
             }
         }
         return true
+    }
+
+    private func acceptItemReorder(_ providers: [NSItemProvider], before targetID: UUID) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let string = object as? String,
+                  let data = string.data(using: .utf8),
+                  let token = try? JSONDecoder().decode(MenuBarItemDragToken.self, from: data) else { return }
+            DispatchQueue.main.async {
+                state.moveDataPoint(id: token.dataPointID, before: targetID)
+            }
+        }
+        return true
+    }
+}
+
+private struct MenuBarItemDragToken: Codable {
+    let dataPointID: UUID
+
+    var encoded: String {
+        String(data: (try? JSONEncoder().encode(self)) ?? Data(), encoding: .utf8) ?? ""
     }
 }
 

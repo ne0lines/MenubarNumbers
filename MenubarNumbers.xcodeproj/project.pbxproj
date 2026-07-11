@@ -13,6 +13,7 @@
 		26977A873F147AEB82603D56 /* MenuBarTextRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D228448B50C73D48D3059D /* MenuBarTextRenderer.swift */; };
 		2D487D8E35B0018DE81F6BE7 /* MenuBarBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A2F1E1A42DF0A4F02C7DDE /* MenuBarBuilderView.swift */; };
 		2E4B6043106E9A8F2ED6C388 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7773316108CF94C6A45F98B8 /* JSONValue.swift */; };
+		3204F4B89264DCBDE0430B2C /* SourceRequestGenerations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */; };
 		45807AB42FFDC4CACFD4972A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB3655C8D93C3FFBAC6C7A0 /* AppState.swift */; };
 		69F4D214F476A5362636F82F /* MenubarNumbersCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */; };
@@ -82,6 +83,7 @@
 		A305B610B5D77D9AD1767FBA /* CoreModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModule.swift; sourceTree = "<group>"; };
 		B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
 		B594541B5293A8CC981C5D05 /* JSONInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONInspectorView.swift; sourceTree = "<group>"; };
+		DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceRequestGenerations.swift; sourceTree = "<group>"; };
 		DFAAE78318CE5CED73A48CE7 /* ConfigurationModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModelsTests.swift; sourceTree = "<group>"; };
 		E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MenubarNumbersCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6676640AA91EA28EB0F08E2 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 				7773316108CF94C6A45F98B8 /* JSONValue.swift */,
 				29D228448B50C73D48D3059D /* MenuBarTextRenderer.swift */,
 				7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */,
+				DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */,
 			);
 			path = MenubarNumbersCore;
 			sourceTree = "<group>";
@@ -266,6 +269,7 @@
 				2E4B6043106E9A8F2ED6C388 /* JSONValue.swift in Sources */,
 				26977A873F147AEB82603D56 /* MenuBarTextRenderer.swift in Sources */,
 				CEAC720AFE3B5024D2FF2FE3 /* SecureValueStore.swift in Sources */,
+				3204F4B89264DCBDE0430B2C /* SourceRequestGenerations.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

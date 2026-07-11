@@ -88,8 +88,22 @@ struct SourceEditorView: View {
                     ConnectionStatusView(state: state, sourceID: source.id)
                 }
 
+                if let cleanupStatus = state.secureCleanupStatus {
+                    HStack {
+                        Label(cleanupStatus, systemImage: "key.slash")
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Secure storage cleanup status: \(cleanupStatus)")
+                        Button("Retry secure cleanup") {
+                            state.retrySecureValueCleanup()
+                        }
+                        .accessibilityLabel("Retry secure storage cleanup")
+                    }
+                }
+
                 if let response = state.latestResponses[source.id] {
-                    JSONInspectorView(source: source, response: response)
+                    JSONInspectorView(source: source, response: response) { sourceID, pointer, label in
+                        state.addDataPoint(sourceID: sourceID, pointer: pointer, label: label)
+                    }
                 } else {
                     ContentUnavailableView("Test the connection", systemImage: "curlybraces", description: Text("A successful JSON response appears here and its scalar values can be dragged to Menu Bar."))
                         .frame(maxWidth: .infinity, minHeight: 180)

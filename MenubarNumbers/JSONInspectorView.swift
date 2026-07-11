@@ -5,12 +5,13 @@ import MenubarNumbersCore
 struct JSONInspectorView: View {
     let source: APISource
     let response: JSONValue
+    let onAdd: (UUID, String, String) -> Void
 
     var body: some View {
         GroupBox("JSON response — drag scalar values to the Menu Bar builder") {
             List {
                 OutlineGroup([response.tree], children: \.nestedChildren) { node in
-                    JSONTreeRow(sourceID: source.id, node: node)
+                    JSONTreeRow(sourceID: source.id, node: node, onAdd: onAdd)
                 }
             }
             .frame(minHeight: 240)
@@ -22,6 +23,7 @@ struct JSONInspectorView: View {
 private struct JSONTreeRow: View {
     let sourceID: UUID
     let node: JSONValueTreeNode
+    let onAdd: (UUID, String, String) -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -40,6 +42,11 @@ private struct JSONTreeRow: View {
                         return NSItemProvider(object: token.encoded as NSString)
                     }
                     .accessibilityLabel("Drag \(node.label) with value \(value) to Menu Bar")
+                Button("Add to Menu Bar") {
+                    onAdd(sourceID, node.pointer, node.label)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Add \(node.label) to Menu Bar")
             }
         }
     }
