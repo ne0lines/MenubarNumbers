@@ -10,6 +10,7 @@ public actor SourceRefreshGate {
     private struct Request: Sendable {
         let source: APISource
         let operation: Operation
+        var interestedWaiterIDs: Set<UUID>
     }
 
     private var active: [UUID: Request] = [:]
@@ -21,14 +22,24 @@ public actor SourceRefreshGate {
 
     public func run(source: APISource, operation: @escaping Operation) async {
         if let current = active[source.id] {
+            let waiterID = UUID()
             if current.source != source {
-                pending[source.id] = Request(source: source, operation: operation)
+                if var replacement = pending[source.id], replacement.source == source {
+                    replacement.interestedWaiterIDs.insert(waiterID)
+                    pending[source.id] = replacement
+                } else {
+                    pending[source.id] = Request(
+                        source: source,
+                        operation: operation,
+                        interestedWaiterIDs: [waiterID]
+                    )
+                }
             }
-            await waitForCompletion(of: source.id)
+            await waitForCompletion(of: source.id, waiterID: waiterID)
             return
         }
 
-        var request = Request(source: source, operation: operation)
+        var request = Request(source: source, operation: operation, interestedWaiterIDs: [])
         active[source.id] = request
         while true {
             await request.operation(request.source)
@@ -46,8 +57,7 @@ public actor SourceRefreshGate {
         waiters.values.reduce(0) { $0 + $1.count }
     }
 
-    private func waitForCompletion(of sourceID: UUID) async {
-        let waiterID = UUID()
+    private func waitForCompletion(of sourceID: UUID, waiterID: UUID) async {
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 if cancelledWaiterIDs.remove(waiterID) != nil || active[sourceID] == nil {
@@ -66,6 +76,14 @@ public actor SourceRefreshGate {
             continuation.resume()
         } else if active[sourceID] != nil {
             cancelledWaiterIDs.insert(waiterID)
+        }
+
+        if var replacement = pending[sourceID], replacement.interestedWaiterIDs.remove(waiterID) != nil {
+            if replacement.interestedWaiterIDs.isEmpty {
+                pending[sourceID] = nil
+            } else {
+                pending[sourceID] = replacement
+            }
         }
     }
 }

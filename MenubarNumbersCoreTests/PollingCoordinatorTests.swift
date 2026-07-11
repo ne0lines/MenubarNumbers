@@ -285,6 +285,42 @@ final class PollingCoordinatorTests: XCTestCase {
         await activeRequest.value
     }
 
+    func testCancellingTheLastReplacementWaiterPreventsThatReplacementFromRunning() async {
+        let gate = SourceRefreshGate()
+        let recorder = SourceURLRecorder()
+        let original = source(named: "Rates")
+        let replacement = APISource(
+            id: original.id,
+            name: original.name,
+            request: APIRequestConfiguration(url: URL(string: "https://api.example.com/rates-v2")!)
+        )
+        let firstStarted = AsyncGate()
+        let releaseFirst = AsyncGate()
+
+        let first = Task {
+            await gate.run(source: original) { source in
+                await recorder.record(source.request.url)
+                await firstStarted.open()
+                await releaseFirst.wait()
+            }
+        }
+        await firstStarted.wait()
+        let replacementWaiter = Task {
+            await gate.run(source: replacement) { source in
+                await recorder.record(source.request.url)
+            }
+        }
+        await shortDelay()
+
+        replacementWaiter.cancel()
+        await replacementWaiter.value
+        await releaseFirst.open()
+        await first.value
+
+        let urls = await recorder.urls()
+        XCTAssertEqual(urls, [original.request.url])
+    }
+
     func testCancellingReplacementLoopRemovesItsRefreshCompletionWaiter() async {
         let refresher = BlockingRefresher()
         let coordinator = PollingCoordinator(
