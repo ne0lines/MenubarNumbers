@@ -10,7 +10,7 @@ public actor SourceRefreshGate {
     private struct Request: Sendable {
         let source: APISource
         let operation: Operation
-        var interestedWaiterIDs: Set<UUID>
+        var interestedWaiters: [UUID: CancellationToken]
     }
 
     private var active: [UUID: Request] = [:]
@@ -23,27 +23,37 @@ public actor SourceRefreshGate {
     public func run(source: APISource, operation: @escaping Operation) async {
         if let current = active[source.id] {
             let waiterID = UUID()
+            let cancellationToken: CancellationToken?
             if current.source != source {
+                let replacementCancellationToken = CancellationToken()
+                cancellationToken = replacementCancellationToken
                 if var replacement = pending[source.id], replacement.source == source {
-                    replacement.interestedWaiterIDs.insert(waiterID)
+                    replacement.interestedWaiters[waiterID] = replacementCancellationToken
                     pending[source.id] = replacement
                 } else {
                     pending[source.id] = Request(
                         source: source,
                         operation: operation,
-                        interestedWaiterIDs: [waiterID]
+                        interestedWaiters: [waiterID: replacementCancellationToken]
                     )
                 }
+            } else {
+                cancellationToken = nil
             }
-            await waitForCompletion(of: source.id, waiterID: waiterID)
+            await waitForCompletion(
+                of: source.id,
+                waiterID: waiterID,
+                cancellationToken: cancellationToken
+            )
             return
         }
 
-        var request = Request(source: source, operation: operation, interestedWaiterIDs: [])
+        var request = Request(source: source, operation: operation, interestedWaiters: [:])
         active[source.id] = request
         while true {
             await request.operation(request.source)
             guard let replacement = pending.removeValue(forKey: source.id) else { break }
+            guard replacement.interestedWaiters.values.contains(where: { !$0.isCancelled }) else { break }
             request = replacement
             active[source.id] = request
         }
@@ -57,7 +67,11 @@ public actor SourceRefreshGate {
         waiters.values.reduce(0) { $0 + $1.count }
     }
 
-    private func waitForCompletion(of sourceID: UUID, waiterID: UUID) async {
+    private func waitForCompletion(
+        of sourceID: UUID,
+        waiterID: UUID,
+        cancellationToken: CancellationToken?
+    ) async {
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 if cancelledWaiterIDs.remove(waiterID) != nil || active[sourceID] == nil {
@@ -67,6 +81,7 @@ public actor SourceRefreshGate {
                 }
             }
         } onCancel: {
+            cancellationToken?.cancel()
             Task { await self.cancelWaiter(waiterID, sourceID: sourceID) }
         }
     }
@@ -78,12 +93,29 @@ public actor SourceRefreshGate {
             cancelledWaiterIDs.insert(waiterID)
         }
 
-        if var replacement = pending[sourceID], replacement.interestedWaiterIDs.remove(waiterID) != nil {
-            if replacement.interestedWaiterIDs.isEmpty {
+        if var replacement = pending[sourceID], replacement.interestedWaiters.removeValue(forKey: waiterID) != nil {
+            if replacement.interestedWaiters.isEmpty {
                 pending[sourceID] = nil
             } else {
                 pending[sourceID] = replacement
             }
         }
+    }
+}
+
+private final class CancellationToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
     }
 }
