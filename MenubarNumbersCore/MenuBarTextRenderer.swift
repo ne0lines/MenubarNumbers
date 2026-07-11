@@ -40,7 +40,7 @@ public enum MenuBarTextRenderer {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.numberStyle = .decimal
         formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = max(0, decimalPlaces)
+        formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = max(0, decimalPlaces)
         formatter.roundingMode = .halfUp
         return formatter.string(from: NSDecimalNumber(decimal: number)) ?? NSDecimalNumber(decimal: number).stringValue

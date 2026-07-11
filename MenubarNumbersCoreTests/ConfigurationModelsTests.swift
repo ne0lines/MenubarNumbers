@@ -81,6 +81,31 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertEqual(result, "Temp: 21.3 | true")
     }
 
+    func testMenuBarRendererLimitsDecimalsWithoutPaddingWithTrailingZeros() {
+        let sourceID = UUID()
+        let point = DataPoint(
+            sourceID: sourceID,
+            jsonPointer: "/value",
+            label: "Value",
+            format: "{value}",
+            numberDecimalPlaces: 2
+        )
+
+        let result = MenuBarTextRenderer.render(
+            layout: MenuBarLayout(items: [point]),
+            responses: [sourceID: .object(["value": .number(Decimal(string: "12.345")!)])]
+        )
+
+        XCTAssertEqual(result, "12.35")
+
+        let wholeNumberResult = MenuBarTextRenderer.render(
+            layout: MenuBarLayout(items: [point]),
+            responses: [sourceID: .object(["value": .number(Decimal(12))])]
+        )
+
+        XCTAssertEqual(wholeNumberResult, "12")
+    }
+
     func testMenuBarRendererExposesEachRenderedItemForTheMenu() {
         let sourceID = UUID()
         let first = DataPoint(sourceID: sourceID, jsonPointer: "/first", label: "First")
