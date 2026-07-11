@@ -23,7 +23,7 @@ final class AppState: ObservableObject {
     private var pendingSecureCleanupReferences: Set<UUID>
     private var requestGenerations = SourceRequestGenerations()
     private var pollingConfigurationGeneration: UInt64 = 0
-    private lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
+    private nonisolated(unsafe) lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
         await self?.refresh(source)
     }
 
@@ -41,7 +41,7 @@ final class AppState: ObservableObject {
         rebuildPolling()
     }
 
-    isolated deinit {
+    deinit {
         let coordinator = pollingCoordinator
         Task { await coordinator.stop() }
     }
