@@ -49,25 +49,6 @@ public final class StreamDeckLoopbackServer: @unchecked Sendable {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
-        let states = AsyncThrowingStream<UInt16, Error> { continuation in
-            listener.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    guard let port = listener.port else {
-                        continuation.finish(throwing: StreamDeckLoopbackServerError.unavailablePort)
-                        return
-                    }
-                    continuation.yield(port.rawValue)
-                    continuation.finish()
-                case .failed:
-                    continuation.finish(throwing: StreamDeckLoopbackServerError.listenerFailed)
-                case .cancelled:
-                    continuation.finish()
-                default:
-                    break
-                }
-            }
-        }
         listener.newConnectionHandler = { [weak self] connection in
             self?.accept(connection)
         }
@@ -75,12 +56,12 @@ public final class StreamDeckLoopbackServer: @unchecked Sendable {
             self.listener = listener
             router = StreamDeckBridgeRouter(token: token, backend: backend)
         }
-        listener.start(queue: queue)
-
-        var iterator = states.makeAsyncIterator()
-        guard let port = try await iterator.next() else {
+        let port: UInt16
+        do {
+            port = try await waitUntilReady(listener)
+        } catch {
             stop()
-            throw StreamDeckLoopbackServerError.listenerFailed
+            throw error
         }
         let discovery = StreamDeckBridgeDiscovery(port: port, token: token)
         do {
@@ -91,6 +72,28 @@ public final class StreamDeckLoopbackServer: @unchecked Sendable {
         }
         locked { self.discovery = discovery }
         return discovery
+    }
+
+    private func waitUntilReady(_ listener: NWListener) async throws -> UInt16 {
+        try await withCheckedThrowingContinuation { continuation in
+            listener.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    listener.stateUpdateHandler = nil
+                    guard let port = listener.port else {
+                        continuation.resume(throwing: StreamDeckLoopbackServerError.unavailablePort)
+                        return
+                    }
+                    continuation.resume(returning: port.rawValue)
+                case .failed, .cancelled:
+                    listener.stateUpdateHandler = nil
+                    continuation.resume(throwing: StreamDeckLoopbackServerError.listenerFailed)
+                default:
+                    break
+                }
+            }
+            listener.start(queue: queue)
+        }
     }
 
     public func stop() {
