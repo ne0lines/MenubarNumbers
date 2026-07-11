@@ -21,6 +21,10 @@ final class AppState: ObservableObject {
     private let pendingSecureCleanupKey = "pendingSecureValueCleanup.v1"
     private var pendingSecureCleanupReferences: Set<UUID>
     private var requestGenerations = SourceRequestGenerations()
+    private var pollingConfigurationGeneration: UInt64 = 0
+    private lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
+        await self?.refresh(source)
+    }
 
     init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
         self.defaults = defaults
@@ -33,6 +37,12 @@ final class AppState: ObservableObject {
         )
         selectedSourceID = sources.first?.id
         retrySecureValueCleanup()
+        rebuildPolling()
+    }
+
+    isolated deinit {
+        let coordinator = pollingCoordinator
+        Task { await coordinator.stop() }
     }
 
     var selectedSource: APISource? {
@@ -53,6 +63,7 @@ final class AppState: ObservableObject {
         sources.append(source)
         selectedSourceID = source.id
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func deleteSelectedSource() {
@@ -79,6 +90,7 @@ final class AppState: ObservableObject {
             removeQueuedSecureReferences(secureReferences(in: source))
             errors[source.id] = safeMessage(for: error)
         }
+        rebuildPolling()
     }
 
     func draft(for source: APISource) -> SourceDraft {
@@ -100,20 +112,20 @@ final class AppState: ObservableObject {
     }
 
     func refreshAll() async {
-        for source in sources where source.isEnabled {
-            await refresh(source)
-        }
+        await pollingCoordinator.refreshNow()
     }
 
     func addDataPoint(sourceID: UUID, pointer: String, label: String) {
         guard !layout.items.contains(where: { $0.sourceID == sourceID && $0.jsonPointer == pointer }) else { return }
         layout.items.append(DataPoint(sourceID: sourceID, jsonPointer: pointer, label: label))
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func removeDataPoint(_ point: DataPoint) {
         layout.items.removeAll { $0.id == point.id }
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func moveDataPoint(_ point: DataPoint, by offset: Int) {
@@ -122,6 +134,7 @@ final class AppState: ObservableObject {
         guard layout.items.indices.contains(destination) else { return }
         layout.items.swapAt(index, destination)
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func moveDataPoint(id: UUID, before targetID: UUID) {
@@ -134,17 +147,20 @@ final class AppState: ObservableObject {
         }
         layout.items.insert(item, at: targetIndex)
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func updateDataPoint(_ id: UUID, _ update: (inout DataPoint) -> Void) {
         guard let index = layout.items.firstIndex(where: { $0.id == id }) else { return }
         update(&layout.items[index])
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func updateSeparator(_ separator: String) {
         layout.separator = separator
         try? persistConfiguration()
+        rebuildPolling()
     }
 
     func retrySecureValueCleanup() {
@@ -206,6 +222,7 @@ final class AppState: ObservableObject {
             }
             try persistConfiguration()
             retrySecureValueCleanup()
+            rebuildPolling()
             return source
         } catch {
             sources = originalSources
@@ -232,6 +249,18 @@ final class AppState: ObservableObject {
                   sources.contains(where: { $0.id == source.id }) else { return }
             errors[source.id] = safeMessage(for: error)
             loadingSourceIDs.remove(source.id)
+        }
+    }
+
+    private func rebuildPolling() {
+        pollingConfigurationGeneration &+= 1
+        let generation = pollingConfigurationGeneration
+        let sourceSnapshot = sources
+        let activeSourceIDs = Set(layout.items.map(\.sourceID))
+        let coordinator = pollingCoordinator
+        Task { [weak self] in
+            guard let self, self.pollingConfigurationGeneration == generation else { return }
+            await coordinator.configure(sources: sourceSnapshot, activeSourceIDs: activeSourceIDs)
         }
     }
 

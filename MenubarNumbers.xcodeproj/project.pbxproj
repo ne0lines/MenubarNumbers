@@ -19,6 +19,8 @@
 		7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */; };
 		89A34C4A84FCB15514D7A34A /* ConfigurationModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFAAE78318CE5CED73A48CE7 /* ConfigurationModelsTests.swift */; };
 		9E94B6BB7BF2F87AA3FAA3C1 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */; };
+		0AA6C1040000000000000003 /* PollingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA6C1040000000000000004 /* PollingCoordinator.swift */; };
+		0AA6C1040000000000000001 /* PollingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA6C1040000000000000002 /* PollingCoordinatorTests.swift */; };
 		A4791E957FAC5D67A1486FAE /* SourceEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018B1DC7C981DD38C20E0B13 /* SourceEditorView.swift */; };
 		B7E8A114B03236E19F9AD671 /* MenubarNumbersCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; };
 		BD0685232C75D41C0F62F561 /* MenubarNumbersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E518374225E27214407542 /* MenubarNumbersApp.swift */; };
@@ -79,6 +81,8 @@
 		7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
 		95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStoreTests.swift; sourceTree = "<group>"; };
 		9FB3655C8D93C3FFBAC6C7A0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		0AA6C1040000000000000004 /* PollingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollingCoordinator.swift; sourceTree = "<group>"; };
+		0AA6C1040000000000000002 /* PollingCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollingCoordinatorTests.swift; sourceTree = "<group>"; };
 		A0A2F1E1A42DF0A4F02C7DDE /* MenuBarBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarBuilderView.swift; sourceTree = "<group>"; };
 		A305B610B5D77D9AD1767FBA /* CoreModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModule.swift; sourceTree = "<group>"; };
 		B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
@@ -130,6 +134,7 @@
 				29D228448B50C73D48D3059D /* MenuBarTextRenderer.swift */,
 				7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */,
 				DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */,
+				0AA6C1040000000000000004 /* PollingCoordinator.swift */,
 			);
 			path = MenubarNumbersCore;
 			sourceTree = "<group>";
@@ -141,6 +146,7 @@
 				DFAAE78318CE5CED73A48CE7 /* ConfigurationModelsTests.swift */,
 				4B596F6B3B379D9AA75E4165 /* JSONValueTests.swift */,
 				95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */,
+				0AA6C1040000000000000002 /* PollingCoordinatorTests.swift */,
 			);
 			path = MenubarNumbersCoreTests;
 			sourceTree = "<group>";
@@ -270,6 +276,7 @@
 				26977A873F147AEB82603D56 /* MenuBarTextRenderer.swift in Sources */,
 				CEAC720AFE3B5024D2FF2FE3 /* SecureValueStore.swift in Sources */,
 				3204F4B89264DCBDE0430B2C /* SourceRequestGenerations.swift in Sources */,
+				0AA6C1040000000000000003 /* PollingCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -293,6 +300,7 @@
 				89A34C4A84FCB15514D7A34A /* ConfigurationModelsTests.swift in Sources */,
 				0C8E14815EAF2485EACC128A /* JSONValueTests.swift in Sources */,
 				7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */,
+				0AA6C1040000000000000001 /* PollingCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
