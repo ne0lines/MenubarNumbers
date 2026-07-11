@@ -17,17 +17,21 @@
 		3204F4B89264DCBDE0430B2C /* SourceRequestGenerations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */; };
 		45807AB42FFDC4CACFD4972A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB3655C8D93C3FFBAC6C7A0 /* AppState.swift */; };
 		57A2BA69864A6EDE89DA55CF /* SourceRefreshGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38E78A6416B6A863EB8EC82 /* SourceRefreshGate.swift */; };
+		5C0D70FF5EB4396C908D3D69 /* StreamDeckHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5B1FF942740C4E465C3278 /* StreamDeckHistoryStore.swift */; };
+		5F15316531F5D79FF831330C /* StreamDeckSubscriptionRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7025CA246F074D8E7A6A81C /* StreamDeckSubscriptionRegistryTests.swift */; };
 		69F4D214F476A5362636F82F /* MenubarNumbersCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */; };
 		8384260188EC0A9A45F72975 /* StreamDeckBridgeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC189445F953BB9C40DD4B73 /* StreamDeckBridgeModelsTests.swift */; };
 		89A34C4A84FCB15514D7A34A /* ConfigurationModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFAAE78318CE5CED73A48CE7 /* ConfigurationModelsTests.swift */; };
 		91D6995A9F7CF37E45423004 /* PollingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A9CF543B5B77542251199DE /* PollingCoordinatorTests.swift */; };
+		9D7BF45D9BC14CA2EF303D55 /* StreamDeckHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBEED242CD1BB9900937356 /* StreamDeckHistoryStoreTests.swift */; };
 		9E94B6BB7BF2F87AA3FAA3C1 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */; };
 		A4791E957FAC5D67A1486FAE /* SourceEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018B1DC7C981DD38C20E0B13 /* SourceEditorView.swift */; };
 		B7E8A114B03236E19F9AD671 /* MenubarNumbersCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; };
 		BD0685232C75D41C0F62F561 /* MenubarNumbersApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8E518374225E27214407542 /* MenubarNumbersApp.swift */; };
 		CBF74AE5DECE1CF2935B9EC4 /* StreamDeckBridgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */; };
 		CEAC720AFE3B5024D2FF2FE3 /* SecureValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */; };
+		DC9914127D17237110E8BBFE /* StreamDeckSubscriptionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */; };
 		DD09AB15FCC044FB19863B67 /* JSONInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B594541B5293A8CC981C5D05 /* JSONInspectorView.swift */; };
 		E5C2A495FE5604358BB7884E /* MenubarNumbersCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; };
 		FAAF8F3AC745C91C04CEFF2B /* MenubarNumbersCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -81,9 +85,12 @@
 		29D228448B50C73D48D3059D /* MenuBarTextRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarTextRenderer.swift; sourceTree = "<group>"; };
 		3A9CF543B5B77542251199DE /* PollingCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PollingCoordinatorTests.swift; sourceTree = "<group>"; };
 		4B596F6B3B379D9AA75E4165 /* JSONValueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValueTests.swift; sourceTree = "<group>"; };
+		4B5B1FF942740C4E465C3278 /* StreamDeckHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckHistoryStore.swift; sourceTree = "<group>"; };
+		4CBEED242CD1BB9900937356 /* StreamDeckHistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckHistoryStoreTests.swift; sourceTree = "<group>"; };
 		75DD4E25DDE001F3B8FD673D /* MenubarNumbersCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MenubarNumbersCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7773316108CF94C6A45F98B8 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
+		9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckSubscriptionRegistry.swift; sourceTree = "<group>"; };
 		95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStoreTests.swift; sourceTree = "<group>"; };
 		9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckBridgeModels.swift; sourceTree = "<group>"; };
 		9FB3655C8D93C3FFBAC6C7A0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -98,6 +105,7 @@
 		E6676640AA91EA28EB0F08E2 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E8E518374225E27214407542 /* MenubarNumbersApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenubarNumbersApp.swift; sourceTree = "<group>"; };
 		F38E78A6416B6A863EB8EC82 /* SourceRefreshGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceRefreshGate.swift; sourceTree = "<group>"; };
+		F7025CA246F074D8E7A6A81C /* StreamDeckSubscriptionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckSubscriptionRegistryTests.swift; sourceTree = "<group>"; };
 		FE236D1689A0A225CFCD0623 /* MenubarNumbers.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MenubarNumbers.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -143,6 +151,8 @@
 				F38E78A6416B6A863EB8EC82 /* SourceRefreshGate.swift */,
 				DC43F919AF109DB8A9B16E43 /* SourceRequestGenerations.swift */,
 				9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */,
+				4B5B1FF942740C4E465C3278 /* StreamDeckHistoryStore.swift */,
+				9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */,
 			);
 			path = MenubarNumbersCore;
 			sourceTree = "<group>";
@@ -156,6 +166,8 @@
 				3A9CF543B5B77542251199DE /* PollingCoordinatorTests.swift */,
 				95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */,
 				CC189445F953BB9C40DD4B73 /* StreamDeckBridgeModelsTests.swift */,
+				4CBEED242CD1BB9900937356 /* StreamDeckHistoryStoreTests.swift */,
+				F7025CA246F074D8E7A6A81C /* StreamDeckSubscriptionRegistryTests.swift */,
 			);
 			path = MenubarNumbersCoreTests;
 			sourceTree = "<group>";
@@ -288,6 +300,8 @@
 				57A2BA69864A6EDE89DA55CF /* SourceRefreshGate.swift in Sources */,
 				3204F4B89264DCBDE0430B2C /* SourceRequestGenerations.swift in Sources */,
 				CBF74AE5DECE1CF2935B9EC4 /* StreamDeckBridgeModels.swift in Sources */,
+				5C0D70FF5EB4396C908D3D69 /* StreamDeckHistoryStore.swift in Sources */,
+				DC9914127D17237110E8BBFE /* StreamDeckSubscriptionRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -313,6 +327,8 @@
 				91D6995A9F7CF37E45423004 /* PollingCoordinatorTests.swift in Sources */,
 				7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */,
 				8384260188EC0A9A45F72975 /* StreamDeckBridgeModelsTests.swift in Sources */,
+				9D7BF45D9BC14CA2EF303D55 /* StreamDeckHistoryStoreTests.swift in Sources */,
+				5F15316531F5D79FF831330C /* StreamDeckSubscriptionRegistryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
