@@ -23,9 +23,7 @@ final class AppState: ObservableObject {
     private var pendingSecureCleanupReferences: Set<UUID>
     private var requestGenerations = SourceRequestGenerations()
     private var pollingConfigurationGeneration: UInt64 = 0
-    private nonisolated(unsafe) lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
-        await self?.refresh(source)
-    }
+    private nonisolated(unsafe) var pollingCoordinator: PollingCoordinator!
 
     init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
         self.defaults = defaults
@@ -37,13 +35,17 @@ final class AppState: ObservableObject {
             (defaults.stringArray(forKey: "pendingSecureValueCleanup.v1") ?? []).compactMap(UUID.init(uuidString:))
         )
         selectedSourceID = sources.first?.id
+        pollingCoordinator = PollingCoordinator { [weak self] source in
+            await self?.refresh(source)
+        }
         retrySecureValueCleanup()
         rebuildPolling()
     }
 
     deinit {
-        let coordinator = pollingCoordinator
-        Task { await coordinator.stop() }
+        if let coordinator = pollingCoordinator {
+            Task { await coordinator.stop() }
+        }
     }
 
     var selectedSource: APISource? {
@@ -113,7 +115,8 @@ final class AppState: ObservableObject {
     }
 
     func refreshAll() async {
-        await pollingCoordinator.refreshNow()
+        guard let coordinator = pollingCoordinator else { return }
+        await coordinator.refreshNow()
     }
 
     func addDataPoint(sourceID: UUID, pointer: String, label: String) {
@@ -268,7 +271,7 @@ final class AppState: ObservableObject {
         let generation = pollingConfigurationGeneration
         let sourceSnapshot = sources
         let activeSourceIDs = Set(layout.items.map(\.sourceID))
-        let coordinator = pollingCoordinator
+        guard let coordinator = pollingCoordinator else { return }
         Task { [weak self] in
             guard let self, self.pollingConfigurationGeneration == generation else { return }
             await coordinator.configure(sources: sourceSnapshot, activeSourceIDs: activeSourceIDs)
