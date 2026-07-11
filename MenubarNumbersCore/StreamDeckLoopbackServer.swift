@@ -43,7 +43,8 @@ public final class StreamDeckLoopbackServer: @unchecked Sendable {
     }
 
     public func start() async throws -> StreamDeckBridgeDiscovery {
-        if let existing = locked({ discovery }) { return existing }
+        let existing: StreamDeckBridgeDiscovery? = locked { self.discovery }
+        if let existing { return existing }
 
         let token = try Self.generateToken()
         let parameters = NWParameters.tcp
@@ -198,11 +199,12 @@ public final class StreamDeckLoopbackServer: @unchecked Sendable {
             headers: headers,
             body: Data(buffer[bodyStart..<bodyEnd])
         )
-        guard let router = locked({ router }) else {
+        let activeRouter: StreamDeckBridgeRouter? = locked { self.router }
+        guard let activeRouter else {
             send(StreamDeckHTTPResponse(statusCode: 500), connection: connection, id: id)
             return
         }
-        send(await router.route(request), connection: connection, id: id)
+        send(await activeRouter.route(request), connection: connection, id: id)
     }
 
     private func send(_ response: StreamDeckHTTPResponse, connection: NWConnection, id: UUID) {
