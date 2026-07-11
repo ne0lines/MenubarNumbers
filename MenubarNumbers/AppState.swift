@@ -23,7 +23,9 @@ final class AppState: ObservableObject {
     private var pendingSecureCleanupReferences: Set<UUID>
     private var requestGenerations = SourceRequestGenerations()
     private var pollingConfigurationGeneration: UInt64 = 0
-    private nonisolated(unsafe) var pollingCoordinator: PollingCoordinator!
+    private lazy var pollingCoordinator = PollingCoordinator { [weak self] source in
+        await self?.refresh(source)
+    }
 
     init(defaults: UserDefaults = .standard, secureStore: KeychainStore = KeychainStore()) {
         self.defaults = defaults
@@ -35,17 +37,8 @@ final class AppState: ObservableObject {
             (defaults.stringArray(forKey: "pendingSecureValueCleanup.v1") ?? []).compactMap(UUID.init(uuidString:))
         )
         selectedSourceID = sources.first?.id
-        pollingCoordinator = PollingCoordinator { [weak self] source in
-            await self?.refresh(source)
-        }
         retrySecureValueCleanup()
         rebuildPolling()
-    }
-
-    deinit {
-        if let coordinator = pollingCoordinator {
-            Task { await coordinator.stop() }
-        }
     }
 
     var selectedSource: APISource? {
@@ -115,8 +108,7 @@ final class AppState: ObservableObject {
     }
 
     func refreshAll() async {
-        guard let coordinator = pollingCoordinator else { return }
-        await coordinator.refreshNow()
+        await pollingCoordinator.refreshNow()
     }
 
     func addDataPoint(sourceID: UUID, pointer: String, label: String) {
@@ -271,7 +263,7 @@ final class AppState: ObservableObject {
         let generation = pollingConfigurationGeneration
         let sourceSnapshot = sources
         let activeSourceIDs = Set(layout.items.map(\.sourceID))
-        guard let coordinator = pollingCoordinator else { return }
+        let coordinator = pollingCoordinator
         Task { [weak self] in
             guard let self, self.pollingConfigurationGeneration == generation else { return }
             await coordinator.configure(sources: sourceSnapshot, activeSourceIDs: activeSourceIDs)
