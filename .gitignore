@@ -9,3 +9,4 @@ streamdeck/dist/
 streamdeck/**/*.log
 streamdeck/**/*.js.map
 streamdeck/com.davidhermansson.menubarnumbers.sdPlugin/bin/
+streamdeck/com.davidhermansson.menubarnumbers.sdPlugin/ui/property-inspector.js

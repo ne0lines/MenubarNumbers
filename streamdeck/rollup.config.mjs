@@ -31,4 +31,17 @@ const plugin = {
   ]
 };
 
-export default plugin;
+const propertyInspector = {
+  input: "src/property-inspector.ts",
+  output: {
+    file: `${sdPlugin}/ui/property-inspector.js`,
+    format: "iife",
+    name: "MenubarNumbersPropertyInspector"
+  },
+  plugins: [
+    typescript(),
+    !isWatching && terser()
+  ]
+};
+
+export default [plugin, propertyInspector];

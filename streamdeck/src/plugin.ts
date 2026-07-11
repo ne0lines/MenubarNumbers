@@ -31,10 +31,11 @@ class GlobalSettingsCache implements RuntimeCache {
 }
 
 streamDeck.logger.setLevel("info");
-const runtime = new PluginRuntime(new BridgeClient(), new GlobalSettingsCache(), {
+const bridgeClient = new BridgeClient();
+const runtime = new PluginRuntime(bridgeClient, new GlobalSettingsCache(), {
   logError: (message) => streamDeck.logger.error(message)
 });
-streamDeck.actions.registerAction(new ApiDataAction(runtime));
+streamDeck.actions.registerAction(new ApiDataAction(runtime, bridgeClient));
 
 await streamDeck.connect();
 await runtime.start();
