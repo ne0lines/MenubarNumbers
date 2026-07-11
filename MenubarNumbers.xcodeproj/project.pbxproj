@@ -21,10 +21,12 @@
 		5C0D70FF5EB4396C908D3D69 /* StreamDeckHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5B1FF942740C4E465C3278 /* StreamDeckHistoryStore.swift */; };
 		5F15316531F5D79FF831330C /* StreamDeckSubscriptionRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7025CA246F074D8E7A6A81C /* StreamDeckSubscriptionRegistryTests.swift */; };
 		62525116F759F28046E468EA /* StreamDeckBridgeRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F76A728964BC607CBEAF39C /* StreamDeckBridgeRouterTests.swift */; };
+		696250FCD6139445F61A3990 /* StreamDeckLoopbackServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29E7FAD4A09BF90DD43F24C /* StreamDeckLoopbackServerTests.swift */; };
 		69F4D214F476A5362636F82F /* MenubarNumbersCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E256BDBF3896588DCB2411BA /* MenubarNumbersCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7500B5AE101BF4192E7FDC24 /* SecureValueStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */; };
 		8384260188EC0A9A45F72975 /* StreamDeckBridgeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC189445F953BB9C40DD4B73 /* StreamDeckBridgeModelsTests.swift */; };
 		89A34C4A84FCB15514D7A34A /* ConfigurationModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFAAE78318CE5CED73A48CE7 /* ConfigurationModelsTests.swift */; };
+		8DD01B023D147CF712C42B9F /* StreamDeckLoopbackServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88EAB048A5DBA04B6C121F00 /* StreamDeckLoopbackServer.swift */; };
 		91D6995A9F7CF37E45423004 /* PollingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A9CF543B5B77542251199DE /* PollingCoordinatorTests.swift */; };
 		9D7BF45D9BC14CA2EF303D55 /* StreamDeckHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBEED242CD1BB9900937356 /* StreamDeckHistoryStoreTests.swift */; };
 		9E94B6BB7BF2F87AA3FAA3C1 /* APIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */; };
@@ -94,11 +96,13 @@
 		75DD4E25DDE001F3B8FD673D /* MenubarNumbersCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MenubarNumbersCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7773316108CF94C6A45F98B8 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		7FB3D7E09204B0E59D6F4C9C /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
+		88EAB048A5DBA04B6C121F00 /* StreamDeckLoopbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckLoopbackServer.swift; sourceTree = "<group>"; };
 		9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckSubscriptionRegistry.swift; sourceTree = "<group>"; };
 		95AE68F12F583D6BCB2BF200 /* SecureValueStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStoreTests.swift; sourceTree = "<group>"; };
 		9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckBridgeModels.swift; sourceTree = "<group>"; };
 		9FB3655C8D93C3FFBAC6C7A0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A0A2F1E1A42DF0A4F02C7DDE /* MenuBarBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarBuilderView.swift; sourceTree = "<group>"; };
+		A29E7FAD4A09BF90DD43F24C /* StreamDeckLoopbackServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeckLoopbackServerTests.swift; sourceTree = "<group>"; };
 		A305B610B5D77D9AD1767FBA /* CoreModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModule.swift; sourceTree = "<group>"; };
 		B24244A6A3FB858F7B8D7B00 /* APIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientTests.swift; sourceTree = "<group>"; };
 		B594541B5293A8CC981C5D05 /* JSONInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONInspectorView.swift; sourceTree = "<group>"; };
@@ -157,6 +161,7 @@
 				9B01D3808769B59ADE576B86 /* StreamDeckBridgeModels.swift */,
 				6AFF9B683811514390D0F5FA /* StreamDeckBridgeRouter.swift */,
 				4B5B1FF942740C4E465C3278 /* StreamDeckHistoryStore.swift */,
+				88EAB048A5DBA04B6C121F00 /* StreamDeckLoopbackServer.swift */,
 				9188357A76A1371825163BA0 /* StreamDeckSubscriptionRegistry.swift */,
 			);
 			path = MenubarNumbersCore;
@@ -173,6 +178,7 @@
 				CC189445F953BB9C40DD4B73 /* StreamDeckBridgeModelsTests.swift */,
 				6F76A728964BC607CBEAF39C /* StreamDeckBridgeRouterTests.swift */,
 				4CBEED242CD1BB9900937356 /* StreamDeckHistoryStoreTests.swift */,
+				A29E7FAD4A09BF90DD43F24C /* StreamDeckLoopbackServerTests.swift */,
 				F7025CA246F074D8E7A6A81C /* StreamDeckSubscriptionRegistryTests.swift */,
 			);
 			path = MenubarNumbersCoreTests;
@@ -308,6 +314,7 @@
 				CBF74AE5DECE1CF2935B9EC4 /* StreamDeckBridgeModels.swift in Sources */,
 				4F20FFF4176BF367B4681817 /* StreamDeckBridgeRouter.swift in Sources */,
 				5C0D70FF5EB4396C908D3D69 /* StreamDeckHistoryStore.swift in Sources */,
+				8DD01B023D147CF712C42B9F /* StreamDeckLoopbackServer.swift in Sources */,
 				DC9914127D17237110E8BBFE /* StreamDeckSubscriptionRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -336,6 +343,7 @@
 				8384260188EC0A9A45F72975 /* StreamDeckBridgeModelsTests.swift in Sources */,
 				62525116F759F28046E468EA /* StreamDeckBridgeRouterTests.swift in Sources */,
 				9D7BF45D9BC14CA2EF303D55 /* StreamDeckHistoryStoreTests.swift in Sources */,
+				696250FCD6139445F61A3990 /* StreamDeckLoopbackServerTests.swift in Sources */,
 				5F15316531F5D79FF831330C /* StreamDeckSubscriptionRegistryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
