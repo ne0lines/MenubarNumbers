@@ -16,8 +16,6 @@ MenubarNumbers is a native macOS menu-bar dashboard for live values from one or 
 
 ![MenubarNumbers menu bar builder screenshot](docs/screenshots/menu-bar-builder.png)
 
-![MenubarNumbers menu bar output screenshot](docs/screenshots/menu-bar-output.png)
-
 ## Requirements
 
 - macOS 14 or newer
