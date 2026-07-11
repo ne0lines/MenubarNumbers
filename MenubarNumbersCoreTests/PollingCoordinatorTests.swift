@@ -254,6 +254,37 @@ final class PollingCoordinatorTests: XCTestCase {
         XCTAssertEqual(urls, [original.request.url, replacement.request.url])
     }
 
+    func testCancellingRefreshGateWaiterRemovesItBeforeTheActiveRequestFinishes() async {
+        let gate = SourceRefreshGate()
+        let refresher = BlockingRefresher()
+        let source = source(named: "Weather")
+
+        let activeRequest = Task {
+            await gate.run(source: source) { source in
+                await refresher.refresh(source.id)
+            }
+        }
+        _ = await refresher.waitForCount(1)
+
+        let cancelledWaiter = Task {
+            await gate.run(source: source) { source in
+                await refresher.refresh(source.id)
+            }
+        }
+        await shortDelay()
+        let waiterCount = await gate.pendingWaiterCount()
+        XCTAssertEqual(waiterCount, 1)
+
+        cancelledWaiter.cancel()
+        await shortDelay()
+        let waiterCountAfterCancellation = await gate.pendingWaiterCount()
+        XCTAssertEqual(waiterCountAfterCancellation, 0)
+        await cancelledWaiter.value
+
+        await refresher.releaseOne()
+        await activeRequest.value
+    }
+
     func testCancellingReplacementLoopRemovesItsRefreshCompletionWaiter() async {
         let refresher = BlockingRefresher()
         let coordinator = PollingCoordinator(

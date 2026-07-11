@@ -14,7 +14,8 @@ public actor SourceRefreshGate {
 
     private var active: [UUID: Request] = [:]
     private var pending: [UUID: Request] = [:]
-    private var waiters: [UUID: [CheckedContinuation<Void, Never>]] = [:]
+    private var waiters: [UUID: [UUID: CheckedContinuation<Void, Never>]] = [:]
+    private var cancelledWaiterIDs: Set<UUID> = []
 
     public init() {}
 
@@ -37,13 +38,34 @@ public actor SourceRefreshGate {
         }
 
         active[source.id] = nil
-        let sourceWaiters = waiters.removeValue(forKey: source.id) ?? []
-        sourceWaiters.forEach { $0.resume() }
+        let sourceWaiters = waiters.removeValue(forKey: source.id) ?? [:]
+        sourceWaiters.values.forEach { $0.resume() }
+    }
+
+    func pendingWaiterCount() -> Int {
+        waiters.values.reduce(0) { $0 + $1.count }
     }
 
     private func waitForCompletion(of sourceID: UUID) async {
-        await withCheckedContinuation { continuation in
-            waiters[sourceID, default: []].append(continuation)
+        let waiterID = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if cancelledWaiterIDs.remove(waiterID) != nil || active[sourceID] == nil {
+                    continuation.resume()
+                } else {
+                    waiters[sourceID, default: [:]][waiterID] = continuation
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(waiterID, sourceID: sourceID) }
+        }
+    }
+
+    private func cancelWaiter(_ waiterID: UUID, sourceID: UUID) {
+        if let continuation = waiters[sourceID]?.removeValue(forKey: waiterID) {
+            continuation.resume()
+        } else if active[sourceID] != nil {
+            cancelledWaiterIDs.insert(waiterID)
         }
     }
 }
