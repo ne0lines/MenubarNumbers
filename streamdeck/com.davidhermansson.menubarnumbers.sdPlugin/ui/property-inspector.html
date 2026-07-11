@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MenubarNumbers API Data</title>
+  <style>
+    :root { color-scheme: dark; font: 13px -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { margin: 0; padding: 14px; color: #eee; background: #2d2d2d; }
+    label { display: block; margin: 13px 0 5px; color: #ccc; }
+    select, input, button { box-sizing: border-box; width: 100%; border: 1px solid #555; border-radius: 4px; padding: 7px; color: #fff; background: #3b3b3b; }
+    select[size] { min-height: 132px; }
+    button { margin-top: 10px; cursor: pointer; }
+    button:hover { background: #4a4a4a; }
+    #status { margin-bottom: 12px; color: #bbb; }
+    #status[data-state="connected"] { color: #72d59b; }
+    #status[data-state="error"] { color: #ff9d91; }
+    .preview { margin-top: 12px; padding: 10px; border-radius: 5px; background: #222; }
+    #preview { overflow: hidden; font-size: 20px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    #pointer, #updated { margin-top: 5px; color: #aaa; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div id="status" data-state="loading">Connecting to MenubarNumbers…</div>
+  <label for="source">API source</label>
+  <select id="source" aria-label="API source"></select>
+  <button id="refresh" type="button">Refresh source</button>
+  <label for="search">Search values</label>
+  <input id="search" type="search" placeholder="Label or JSON Pointer">
+  <label for="field">Value</label>
+  <select id="field" size="7" aria-label="API value"></select>
+  <label for="mode">Display</label>
+  <select id="mode">
+    <option value="value">Value</option>
+    <option value="sparkline">Value + sparkline</option>
+  </select>
+  <div class="preview">
+    <div id="preview">—</div>
+    <div id="pointer">No value selected</div>
+    <div id="updated"></div>
+  </div>
+  <script src="property-inspector.js"></script>
+</body>
+</html>
