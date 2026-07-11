@@ -114,21 +114,21 @@ private struct DataPointEditor: View {
                     Button { state.removeDataPoint(point) } label: { Image(systemName: "trash") }
                         .accessibilityLabel("Remove \(point.label) from menu bar")
                 }
-                TextField("Label", text: binding(\.label))
+                TextField("Label", text: labelBinding)
                     .accessibilityLabel("Menu bar item label")
-                TextField("Template", text: binding(\.format))
+                TextField("Template", text: formatBinding)
                     .accessibilityLabel("Menu bar template")
-                TextField("Fallback", text: binding(\.fallback))
+                TextField("Fallback", text: fallbackBinding)
                     .accessibilityLabel("Menu bar fallback value")
                 HStack {
-                    Picker("Decimals", selection: binding(\.numberDecimalPlaces)) {
+                    Picker("Decimals", selection: decimalBinding) {
                         Text("Automatic").tag(Int?.none)
                         ForEach(0...6, id: \.self) { places in
                             Text("\(places)").tag(Optional(places))
                         }
                     }
                     .accessibilityLabel("Number decimal places")
-                    Picker("Date style", selection: binding(\.dateStyle)) {
+                    Picker("Date style", selection: dateStyleBinding) {
                         ForEach(MenuBarDateStyle.allCases, id: \.self) { style in
                             Text(style.rawValue.capitalized).tag(style)
                         }
@@ -146,10 +146,23 @@ private struct DataPointEditor: View {
         state.sources.first(where: { $0.id == point.sourceID })?.name ?? "Deleted source"
     }
 
-    private func binding<Value>(_ keyPath: WritableKeyPath<DataPoint, Value>) -> Binding<Value> {
-        Binding(
-            get: { point[keyPath: keyPath] },
-            set: { value in state.updateDataPoint(point.id) { $0[keyPath: keyPath] = value } }
-        )
+    private var labelBinding: Binding<String> {
+        Binding(get: { point.label }, set: { value in state.updateDataPoint(point.id) { $0.label = value } })
+    }
+
+    private var formatBinding: Binding<String> {
+        Binding(get: { point.format }, set: { value in state.updateDataPoint(point.id) { $0.format = value } })
+    }
+
+    private var fallbackBinding: Binding<String> {
+        Binding(get: { point.fallback }, set: { value in state.updateDataPoint(point.id) { $0.fallback = value } })
+    }
+
+    private var decimalBinding: Binding<Int?> {
+        Binding(get: { point.numberDecimalPlaces }, set: { value in state.updateDataPoint(point.id) { $0.numberDecimalPlaces = value } })
+    }
+
+    private var dateStyleBinding: Binding<MenuBarDateStyle> {
+        Binding(get: { point.dateStyle }, set: { value in state.updateDataPoint(point.id) { $0.dateStyle = value } })
     }
 }
