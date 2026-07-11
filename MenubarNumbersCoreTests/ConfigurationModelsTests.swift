@@ -81,6 +81,20 @@ final class ConfigurationModelsTests: XCTestCase {
         XCTAssertEqual(result, "Temp: 21.3 | true")
     }
 
+    func testMenuBarRendererExposesEachRenderedItemForTheMenu() {
+        let sourceID = UUID()
+        let first = DataPoint(sourceID: sourceID, jsonPointer: "/first", label: "First")
+        let second = DataPoint(sourceID: sourceID, jsonPointer: "/second", label: "Second", format: "{value}")
+        let layout = MenuBarLayout(items: [first, second])
+
+        let result = MenuBarTextRenderer.renderItems(
+            layout: layout,
+            responses: [sourceID: .object(["first": .number(12), "second": .string("ready")])]
+        )
+
+        XCTAssertEqual(result, ["First 12", "ready"])
+    }
+
     func testMenuBarRendererUsesFallbackForMissingOrNonScalarValue() {
         let sourceID = UUID()
         let missing = DataPoint(sourceID: sourceID, jsonPointer: "/missing", label: "Missing", fallback: "N/A")

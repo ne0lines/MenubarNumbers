@@ -16,7 +16,15 @@ struct MenubarNumbersApp: App {
                 }
         }
 
-        MenuBarExtra(state.menuBarText, systemImage: "chart.bar") {
+        MenuBarExtra {
+            if state.menuBarItems.isEmpty {
+                Text("No data points configured")
+            } else {
+                ForEach(Array(state.menuBarItems.enumerated()), id: \.offset) { _, item in
+                    Text(item)
+                }
+                Divider()
+            }
             Button("Refresh Now") {
                 Task { await state.refreshAll() }
             }
@@ -31,6 +39,10 @@ struct MenubarNumbersApp: App {
                 NSApp.terminate(nil)
             }
             .accessibilityLabel("Quit MenubarNumbers")
+        } label: {
+            Text(state.menuBarText)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .menuBarExtraStyle(.menu)
     }

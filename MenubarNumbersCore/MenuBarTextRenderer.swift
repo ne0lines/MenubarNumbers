@@ -4,13 +4,17 @@ import Foundation
 /// app preview and the real status item always use the exact same rules.
 public enum MenuBarTextRenderer {
     public static func render(layout: MenuBarLayout, responses: [UUID: JSONValue]) -> String {
+        renderItems(layout: layout, responses: responses).joined(separator: layout.separator)
+    }
+
+    public static func renderItems(layout: MenuBarLayout, responses: [UUID: JSONValue]) -> [String] {
         layout.items.map { point in
             let value = responses[point.sourceID].flatMap { try? $0.value(at: point.jsonPointer) }
             let renderedValue = value.flatMap { scalarText(for: $0, point: point) } ?? point.fallback
             return point.format
                 .replacingOccurrences(of: "{label}", with: point.label)
                 .replacingOccurrences(of: "{value}", with: renderedValue)
-        }.joined(separator: layout.separator)
+        }
     }
 
     private static func scalarText(for value: JSONValue, point: DataPoint) -> String? {

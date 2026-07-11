@@ -68,6 +68,10 @@ final class AppState: ObservableObject {
         return text.isEmpty ? "MenubarNumbers" : text
     }
 
+    var menuBarItems: [String] {
+        MenuBarTextRenderer.renderItems(layout: layout, responses: latestResponses)
+    }
+
     func addSource() {
         retrySecureValueCleanup()
         let source = APISource(

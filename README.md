@@ -12,6 +12,7 @@ MenubarNumbers is a native macOS menu-bar dashboard for live values from one or 
 - Inspects JSON responses through RFC 6901 JSON Pointers.
 - Lets you drag scalar values into a simulated menu bar and reorder them.
 - Formats numbers and dates, sets labels/templates/fallbacks, and uses the same renderer for the preview and `MenuBarExtra`.
+- Keeps the full rendered values available in the menu-bar dropdown when macOS has limited room for the status label.
 - Polls only enabled sources that are used by the current layout, with coalesced refreshes and no overlapping requests.
 - Makes every scalar API value available to a macOS Stream Deck plugin.
 - Renders either a value alone or, for numbers, the value over a persisted 60-sample sparkline.
