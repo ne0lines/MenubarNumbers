@@ -124,6 +124,65 @@ final class PollingCoordinatorTests: XCTestCase {
         await coordinator.stop()
         await sleeper.releaseAll()
     }
+
+    func testManualRefreshCancelsTheOldSleepAndStartsANewFullIntervalAfterRefreshing() async {
+        let recorder = RefreshRecorder()
+        let sleeper = BlockingSleeper()
+        let coordinator = PollingCoordinator(
+            refresh: { source in await recorder.record(source.id) },
+            sleep: { interval in await sleeper.sleep(interval) }
+        )
+        let source = source(named: "Weather", interval: 60)
+
+        await coordinator.configure(sources: [source], activeSourceIDs: [source.id])
+        _ = await recorder.waitForCount(1)
+        _ = await sleeper.waitForIntervals(count: 1)
+
+        await coordinator.refreshNow()
+        _ = await recorder.waitForCount(2)
+        await yieldToPollingTasks()
+
+        let intervals = await sleeper.recordedIntervals()
+        XCTAssertEqual(intervals, [60, 60])
+
+        await coordinator.stop()
+        await sleeper.releaseAll()
+    }
+
+    func testReplacementWaitsForItsOwnRefreshBeforeStartingItsNewInterval() async {
+        let refresher = BlockingRefresher()
+        let sleeper = BlockingSleeper()
+        let coordinator = PollingCoordinator(
+            refresh: { source in await refresher.refresh(source.id) },
+            sleep: { interval in await sleeper.sleep(interval) }
+        )
+        let original = source(named: "Rates", interval: 15)
+        let replacement = APISource(
+            id: original.id,
+            name: original.name,
+            request: APIRequestConfiguration(url: URL(string: "https://api.example.com/rates-v2")!, refreshInterval: 30)
+        )
+
+        await coordinator.configure(sources: [original], activeSourceIDs: [original.id])
+        _ = await refresher.waitForCount(1)
+
+        await coordinator.configure(sources: [replacement], activeSourceIDs: [replacement.id])
+        await yieldToPollingTasks()
+        let intervalsBeforeOriginalCompletes = await sleeper.recordedIntervals()
+        XCTAssertEqual(intervalsBeforeOriginalCompletes, [])
+
+        await refresher.releaseOne()
+        _ = await refresher.waitForCount(2)
+        let intervalsBeforeReplacementCompletes = await sleeper.recordedIntervals()
+        XCTAssertEqual(intervalsBeforeReplacementCompletes, [])
+
+        await refresher.releaseOne()
+        let intervals = await sleeper.waitForIntervals(count: 1)
+        XCTAssertEqual(intervals, [30])
+
+        await coordinator.stop()
+        await sleeper.releaseAll()
+    }
 }
 
 private func source(named name: String, enabled: Bool = true, interval: TimeInterval = 60) -> APISource {
@@ -176,6 +235,11 @@ private actor BlockingRefresher {
         continuations.removeAll()
         pending.forEach { $0.resume() }
     }
+
+    func releaseOne() {
+        guard !continuations.isEmpty else { return }
+        continuations.removeFirst().resume()
+    }
 }
 
 private actor BlockingSleeper {
@@ -196,6 +260,8 @@ private actor BlockingSleeper {
         return intervals
     }
 
+    func recordedIntervals() -> [TimeInterval] { intervals }
+
     func releaseOne() {
         guard !continuations.isEmpty else { return }
         continuations.removeFirst().resume()
@@ -205,5 +271,11 @@ private actor BlockingSleeper {
         let pending = continuations
         continuations.removeAll()
         pending.forEach { $0.resume() }
+    }
+}
+
+private func yieldToPollingTasks() async {
+    for _ in 0 ..< 10 {
+        await Task.yield()
     }
 }

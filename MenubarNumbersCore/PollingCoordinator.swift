@@ -12,12 +12,19 @@ public actor PollingCoordinator {
         let token: UUID
     }
 
+    private enum InitialWork: Sendable {
+        case refresh
+        case waitThenSleep
+        case waitThenRefresh
+    }
+
     private let refresh: Refresh
     private let sleep: Sleeper
     private var registrations: [UUID: Registration] = [:]
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var inFlightSourceIDs: Set<UUID> = []
     private var pendingImmediateRefresh: Set<UUID> = []
+    private var refreshCompletionWaiters: [UUID: [CheckedContinuation<Void, Never>]] = [:]
 
     public init(refresh: @escaping Refresh) {
         self.refresh = refresh
@@ -39,7 +46,8 @@ public actor PollingCoordinator {
             desired[source.id] = source
         }
 
-        for (sourceID, registration) in registrations {
+        for sourceID in Array(registrations.keys) {
+            guard let registration = registrations[sourceID] else { continue }
             guard let replacement = desired[sourceID], replacement == registration.source else {
                 cancel(sourceID)
                 continue
@@ -47,20 +55,26 @@ public actor PollingCoordinator {
         }
 
         for source in desired.values where registrations[source.id] == nil {
-            start(source)
+            let initialWork: InitialWork = inFlightSourceIDs.contains(source.id) ? .waitThenRefresh : .refresh
+            start(source, initialWork: initialWork)
         }
     }
 
-    /// Requests an immediate refresh of all currently active sources. Existing
-    /// in-flight polling requests are reused instead of duplicated.
+    /// Requests an immediate refresh of all currently active sources. The
+    /// scheduled timer is restarted, so the next interval begins only after
+    /// that refresh (or an already in-flight equivalent refresh) completes.
     public func refreshNow() async {
         let activeSources = registrations.values.map(\.source)
-        await withTaskGroup(of: Void.self) { group in
-            for source in activeSources {
-                group.addTask { [weak self] in
-                    await self?.refreshIfNeeded(source)
-                }
+        for source in activeSources {
+            let requiresReplacementRefresh = pendingImmediateRefresh.contains(source.id)
+            let initialWork: InitialWork
+            if inFlightSourceIDs.contains(source.id) {
+                initialWork = requiresReplacementRefresh ? .waitThenRefresh : .waitThenSleep
+            } else {
+                initialWork = .refresh
             }
+            cancel(source.id)
+            start(source, initialWork: initialWork)
         }
     }
 
@@ -72,14 +86,14 @@ public actor PollingCoordinator {
         }
     }
 
-    private func start(_ source: APISource) {
+    private func start(_ source: APISource, initialWork: InitialWork) {
         let token = UUID()
         registrations[source.id] = Registration(source: source, token: token)
-        if inFlightSourceIDs.contains(source.id) {
+        if case .waitThenRefresh = initialWork {
             pendingImmediateRefresh.insert(source.id)
         }
         tasks[source.id] = Task { [weak self] in
-            await self?.run(sourceID: source.id, token: token)
+            await self?.run(sourceID: source.id, token: token, initialWork: initialWork)
         }
     }
 
@@ -89,41 +103,59 @@ public actor PollingCoordinator {
         tasks.removeValue(forKey: sourceID)?.cancel()
     }
 
-    private func run(sourceID: UUID, token: UUID) async {
+    private func run(sourceID: UUID, token: UUID, initialWork: InitialWork) async {
         defer {
             if registrations[sourceID]?.token == token {
                 tasks[sourceID] = nil
             }
         }
 
+        guard let initialRegistration = registrations[sourceID], initialRegistration.token == token else { return }
+        switch initialWork {
+        case .refresh:
+            if !(await refreshIfNeeded(initialRegistration.source, token: token)) {
+                await waitForRefreshCompletion(sourceID)
+            }
+        case .waitThenSleep:
+            await waitForRefreshCompletion(sourceID)
+        case .waitThenRefresh:
+            await waitForRefreshCompletion(sourceID)
+            guard registrations[sourceID]?.token == token,
+                  pendingImmediateRefresh.remove(sourceID) != nil else { return }
+            _ = await refreshIfNeeded(initialRegistration.source, token: token)
+        }
+
         while !Task.isCancelled {
-            guard let registration = registrations[sourceID], registration.token == token else { return }
-            await refreshIfNeeded(registration.source, token: token)
+            guard let currentRegistration = registrations[sourceID], currentRegistration.token == token else { return }
+            await sleep(supportedInterval(for: currentRegistration.source.request.refreshInterval))
 
             guard !Task.isCancelled,
-                  let currentRegistration = registrations[sourceID],
-                  currentRegistration.token == token else { return }
-            await sleep(supportedInterval(for: currentRegistration.source.request.refreshInterval))
+                  let registration = registrations[sourceID],
+                  registration.token == token else { return }
+            if !(await refreshIfNeeded(registration.source, token: token)) {
+                await waitForRefreshCompletion(sourceID)
+            }
         }
     }
 
-    private func refreshIfNeeded(_ source: APISource, token: UUID? = nil) async {
+    private func refreshIfNeeded(_ source: APISource, token: UUID? = nil) async -> Bool {
         guard let registration = registrations[source.id],
               registration.source == source,
               token == nil || token == registration.token,
-              !inFlightSourceIDs.contains(source.id) else { return }
+              !inFlightSourceIDs.contains(source.id) else { return false }
 
         inFlightSourceIDs.insert(source.id)
         await refresh(source)
         inFlightSourceIDs.remove(source.id)
+        let waiters = refreshCompletionWaiters.removeValue(forKey: source.id) ?? []
+        waiters.forEach { $0.resume() }
+        return true
+    }
 
-        // A source can be changed while its prior request is completing. The
-        // replacement loop skipped that first request to preserve no-overlap,
-        // so start its configured request as soon as the old one ends.
-        if pendingImmediateRefresh.remove(source.id) != nil,
-           let replacement = registrations[source.id],
-           replacement.source != source {
-            await refreshIfNeeded(replacement.source, token: replacement.token)
+    private func waitForRefreshCompletion(_ sourceID: UUID) async {
+        guard inFlightSourceIDs.contains(sourceID) else { return }
+        await withCheckedContinuation { continuation in
+            refreshCompletionWaiters[sourceID, default: []].append(continuation)
         }
     }
 
