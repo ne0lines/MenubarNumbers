@@ -89,6 +89,9 @@ public actor APIClient {
         } catch {
             throw APIClientError.network
         }
+        guard response.data.count <= Self.maximumResponseBytes else {
+            throw APIClientError.responseTooLarge
+        }
         guard (200...299).contains(response.statusCode) else {
             throw APIClientError.httpStatus(response.statusCode)
         }

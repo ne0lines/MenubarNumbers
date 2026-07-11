@@ -237,6 +237,23 @@ final class APIClientTests: XCTestCase {
             XCTAssertFalse(error.localizedDescription.contains(sentinel))
         }
     }
+
+    func testFetchRejectsAnOversizedResponseFromANonEnforcingTransport() async {
+        let maximum = APIClient.maximumResponseBytes
+        let sentinel = "transport-bypass-secret"
+        let body = Data(("\"" + String(repeating: sentinel, count: maximum / sentinel.utf8.count + 1) + "\"").utf8)
+        let transport = NonEnforcingTransport(response: HTTPTransportResponse(statusCode: 200, data: body))
+        let client = APIClient(transport: transport, secureValueStore: InMemorySecureValueStore())
+        let source = APISource(name: "Unsafe transport", request: APIRequestConfiguration(url: URL(string: "https://api.example.com/value")!))
+
+        do {
+            _ = try await client.fetch(source: source)
+            XCTFail("Expected response-too-large error")
+        } catch {
+            XCTAssertEqual(error as? APIClientError, .responseTooLarge)
+            XCTAssertFalse(error.localizedDescription.contains(sentinel))
+        }
+    }
 }
 
 private actor RecordingTransport: HTTPTransport {
@@ -284,4 +301,12 @@ private actor LimitEnforcingTransport: HTTPTransport {
     }
 
     func lastMaximumResponseBytes() -> Int? { maximumResponseBytes }
+}
+
+private struct NonEnforcingTransport: HTTPTransport {
+    let response: HTTPTransportResponse
+
+    func data(for request: URLRequest, maximumResponseBytes: Int) async throws -> HTTPTransportResponse {
+        response
+    }
 }
