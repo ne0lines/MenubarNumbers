@@ -30,105 +30,101 @@ final class ConfigurationModelsTests: XCTestCase {
         let data = try JSONEncoder().encode(source)
         let jsonObject = try JSONSerialization.jsonObject(with: data)
 
-        XCTAssertEqual(sensitiveKeys(in: jsonObject), [])
+        XCTAssertEqual(
+            allObjectKeys(in: jsonObject),
+            [
+                "authentication", "basic", "credentialReference", "headers", "id", "isEnabled", "method", "name",
+                "queryItems", "refreshInterval", "request", "url"
+            ]
+        )
     }
 
-    func testValidationRejectsURLWithUserInfo() {
+    func testBaseURLValidationRejectsUserInfo() {
         let request = APIRequestConfiguration(url: URL(string: "https://user:password@example.com/weather")!)
 
-        XCTAssertThrowsError(try request.validate()) { error in
+        XCTAssertThrowsError(try JSONEncoder().encode(request)) { error in
             XCTAssertEqual(error as? APIRequestConfigurationValidationError, .urlContainsUserInfo)
         }
     }
 
-    func testValidationRejectsSensitiveHeaderAndQueryNamesRegardlessOfFormatting() {
-        let headerRequest = APIRequestConfiguration(
-            url: URL(string: "https://api.example.com/weather")!,
-            headers: ["X_API-Key": "not-persisted"]
-        )
-        let queryRequest = APIRequestConfiguration(
-            url: URL(string: "https://api.example.com/weather")!,
-            queryItems: [APIRequestQueryItem(name: "ACCESS-token", value: "not-persisted")]
+    func testBaseURLValidationRejectsQuery() {
+        let request = APIRequestConfiguration(
+            url: URL(string: "https://api.example.com/weather?unit=metric")!
         )
 
-        XCTAssertThrowsError(try headerRequest.validate()) { error in
-            XCTAssertEqual(
-                error as? APIRequestConfigurationValidationError,
-                .prohibitedField(name: "X_API-Key", location: .header)
-            )
-        }
-        XCTAssertThrowsError(try queryRequest.validate()) { error in
-            XCTAssertEqual(
-                error as? APIRequestConfigurationValidationError,
-                .prohibitedField(name: "ACCESS-token", location: .queryItem)
-            )
+        XCTAssertThrowsError(try JSONEncoder().encode(request)) { error in
+            XCTAssertEqual(error as? APIRequestConfigurationValidationError, .urlContainsQuery)
         }
     }
 
-    func testValidationRejectsSensitiveJSONBodyKeysRecursively() {
-        let request = APIRequestConfiguration(
-            method: .post,
-            url: URL(string: "https://api.example.com/weather")!,
-            jsonBody: "{\"filters\": [{\"client_secret\": \"not-persisted\"}]}"
-        )
+    func testDecodingRejectsBaseURLWithQuery() {
+        let encodedRequest = """
+        {"method":"GET","url":"https://api.example.com/weather?unit=metric","headers":[],"queryItems":[],"refreshInterval":60}
+        """
 
-        XCTAssertThrowsError(try request.validate()) { error in
-            XCTAssertEqual(
-                error as? APIRequestConfigurationValidationError,
-                .prohibitedField(name: "client_secret", location: .jsonBody)
-            )
+        XCTAssertThrowsError(try JSONDecoder().decode(APIRequestConfiguration.self, from: Data(encodedRequest.utf8))) { error in
+            XCTAssertEqual(error as? APIRequestConfigurationValidationError, .urlContainsQuery)
         }
     }
 
-    func testValidationAcceptsStaticNonCredentialRequestData() throws {
+    func testDecodingRejectsBaseURLWithUserInfo() {
+        let encodedRequest = """
+        {"method":"GET","url":"https://user:password@api.example.com/weather","headers":[],"queryItems":[],"refreshInterval":60}
+        """
+
+        XCTAssertThrowsError(try JSONDecoder().decode(APIRequestConfiguration.self, from: Data(encodedRequest.utf8))) { error in
+            XCTAssertEqual(error as? APIRequestConfigurationValidationError, .urlContainsUserInfo)
+        }
+    }
+
+    func testRequestEncodingPersistsOnlyReferenceMetadata() throws {
+        let headerReference = UUID()
+        let queryReference = UUID()
+        let bodyReference = UUID()
         let request = APIRequestConfiguration(
             method: .post,
             url: URL(string: "https://api.example.com/weather")!,
-            headers: ["Accept": "application/json"],
-            queryItems: [APIRequestQueryItem(name: "unit", value: "metric")],
-            jsonBody: "{\"filters\": [{\"city\": \"Stockholm\"}]}"
+            headers: [RequestHeader(name: "X-API-Key", valueReference: headerReference)],
+            queryItems: [RequestQueryItem(name: "api_key", valueReference: queryReference)],
+            jsonBodyReference: bodyReference
+        )
+        let sentinels = ["header-secret-value", "query-secret-value", "body-secret-value"]
+
+        let data = try JSONEncoder().encode(request)
+        let encoded = try XCTUnwrap(String(data: data, encoding: .utf8))
+
+        XCTAssertTrue(encoded.contains("X-API-Key"))
+        XCTAssertTrue(encoded.contains("api_key"))
+        let lowercaseEncoded = encoded.lowercased()
+        XCTAssertTrue(lowercaseEncoded.contains(headerReference.uuidString.lowercased()))
+        XCTAssertTrue(lowercaseEncoded.contains(queryReference.uuidString.lowercased()))
+        XCTAssertTrue(lowercaseEncoded.contains(bodyReference.uuidString.lowercased()))
+        for sentinel in sentinels {
+            XCTAssertFalse(encoded.contains(sentinel))
+        }
+    }
+
+    func testCredentialNamedRequestReferencesAreAllowed() {
+        let request = APIRequestConfiguration(
+            url: URL(string: "https://api.example.com/weather")!,
+            headers: [RequestHeader(name: "Authorization", valueReference: UUID())],
+            queryItems: [RequestQueryItem(name: "access_token", valueReference: UUID())]
         )
 
         XCTAssertNoThrow(try request.validate())
     }
 
-    func testEncodingRejectsCredentialBearingRequestConfiguration() {
-        let request = APIRequestConfiguration(
-            url: URL(string: "https://api.example.com/weather")!,
-            headers: ["Authorization": "not-persisted"]
-        )
-
-        XCTAssertThrowsError(try JSONEncoder().encode(request)) { error in
-            XCTAssertEqual(
-                error as? APIRequestConfigurationValidationError,
-                .prohibitedField(name: "Authorization", location: .header)
-            )
-        }
-    }
-
-    private func sensitiveKeys(in jsonObject: Any) -> [String] {
+    private func allObjectKeys(in jsonObject: Any) -> [String] {
         if let dictionary = jsonObject as? [String: Any] {
             return dictionary.flatMap { key, value in
-                let keyResult = isSensitive(key) ? [key] : []
-                return keyResult + sensitiveKeys(in: value)
-            }
+                [key] + allObjectKeys(in: value)
+            }.sorted()
         }
 
         if let array = jsonObject as? [Any] {
-            return array.flatMap(sensitiveKeys(in:))
+            return array.flatMap(allObjectKeys(in:)).sorted()
         }
 
         return []
-    }
-
-    private func isSensitive(_ name: String) -> Bool {
-        let normalized = name.lowercased().filter { $0.isLetter || $0.isNumber }
-        if ["authentication", "credentialreference"].contains(normalized) {
-            return false
-        }
-        let prohibitedFragments = [
-            "authorization", "apikey", "token", "secret", "password", "credential", "bearer", "privatekey", "accesskey"
-        ]
-        return normalized == "auth" || prohibitedFragments.contains { normalized.contains($0) }
     }
 }

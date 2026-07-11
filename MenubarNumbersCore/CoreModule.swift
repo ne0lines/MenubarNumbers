@@ -7,89 +7,85 @@ public enum HTTPMethod: String, Codable, Sendable {
     case post = "POST"
 }
 
-public struct APIRequestQueryItem: Codable, Equatable, Sendable {
+/// A persisted header name and the Keychain reference for its value.
+public struct RequestHeader: Codable, Equatable, Sendable {
     public var name: String
-    public var value: String
+    public var valueReference: UUID
 
-    public init(name: String, value: String) {
+    public init(name: String, valueReference: UUID) {
         self.name = name
-        self.value = value
+        self.valueReference = valueReference
     }
 }
 
-public enum APIRequestFieldLocation: String, Codable, Equatable, Sendable {
-    case header
-    case queryItem
-    case jsonBody
+/// A persisted query-item name and the Keychain reference for its value.
+public struct RequestQueryItem: Codable, Equatable, Sendable {
+    public var name: String
+    public var valueReference: UUID
+
+    public init(name: String, valueReference: UUID) {
+        self.name = name
+        self.valueReference = valueReference
+    }
 }
 
 public enum APIRequestConfigurationValidationError: Error, Equatable, LocalizedError, Sendable {
     case urlContainsUserInfo
-    case prohibitedField(name: String, location: APIRequestFieldLocation)
-    case invalidJSONBody
+    case urlContainsQuery
 
     public var errorDescription: String? {
         switch self {
         case .urlContainsUserInfo:
             return "Request URLs cannot include user information. Store credentials in Keychain instead."
-        case let .prohibitedField(name, location):
-            return "\(location.rawValue) field '\(name)' may contain credentials. Store credentials in Keychain instead."
-        case .invalidJSONBody:
-            return "The static JSON request body is invalid."
+        case .urlContainsQuery:
+            return "Request URLs cannot include query items. Store each query value in Keychain instead."
         }
     }
 }
 
-/// Persisted request details. Authentication values remain in Keychain and are
-/// deliberately represented only by `AuthenticationConfiguration` references.
+/// Persisted request metadata. All user-supplied request values are stored in
+/// Keychain and represented here only by UUID references.
 public struct APIRequestConfiguration: Codable, Equatable, Sendable {
     public var method: HTTPMethod
     public var url: URL
-    public var headers: [String: String]
-    public var queryItems: [APIRequestQueryItem]
-    public var jsonBody: String?
+    public var headers: [RequestHeader]
+    public var queryItems: [RequestQueryItem]
+    public var jsonBodyReference: UUID?
     public var refreshInterval: TimeInterval
 
     public init(
         method: HTTPMethod = .get,
         url: URL,
-        headers: [String: String] = [:],
-        queryItems: [APIRequestQueryItem] = [],
-        jsonBody: String? = nil,
+        headers: [RequestHeader] = [],
+        queryItems: [RequestQueryItem] = [],
+        jsonBodyReference: UUID? = nil,
         refreshInterval: TimeInterval = 60
     ) {
         self.method = method
         self.url = url
         self.headers = headers
         self.queryItems = queryItems
-        self.jsonBody = jsonBody
+        self.jsonBodyReference = jsonBodyReference
         self.refreshInterval = refreshInterval
     }
 
-    /// Rejects request fields that could persist credentials outside Keychain.
+    /// Rejects base URLs that would persist request values outside Keychain.
     public func validate() throws {
         guard url.user == nil, url.password == nil else {
             throw APIRequestConfigurationValidationError.urlContainsUserInfo
         }
-
-        if let name = headers.keys.first(where: Self.isCredentialBearingFieldName) {
-            throw APIRequestConfigurationValidationError.prohibitedField(name: name, location: .header)
+        guard url.query == nil else {
+            throw APIRequestConfigurationValidationError.urlContainsQuery
         }
-
-        if let name = queryItems.map(\.name).first(where: Self.isCredentialBearingFieldName) {
-            throw APIRequestConfigurationValidationError.prohibitedField(name: name, location: .queryItem)
-        }
-
-        try validateJSONBody()
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         method = try container.decode(HTTPMethod.self, forKey: .method)
         url = try container.decode(URL.self, forKey: .url)
-        headers = try container.decode([String: String].self, forKey: .headers)
-        queryItems = try container.decode([APIRequestQueryItem].self, forKey: .queryItems)
-        jsonBody = try container.decodeIfPresent(String.self, forKey: .jsonBody)
+        headers = try container.decode([RequestHeader].self, forKey: .headers)
+        queryItems = try container.decode([RequestQueryItem].self, forKey: .queryItems)
+        jsonBodyReference = try container.decodeIfPresent(UUID.self, forKey: .jsonBodyReference)
         refreshInterval = try container.decode(TimeInterval.self, forKey: .refreshInterval)
         try validate()
     }
@@ -102,70 +98,8 @@ public struct APIRequestConfiguration: Codable, Equatable, Sendable {
         try container.encode(url, forKey: .url)
         try container.encode(headers, forKey: .headers)
         try container.encode(queryItems, forKey: .queryItems)
-        try container.encodeIfPresent(jsonBody, forKey: .jsonBody)
+        try container.encodeIfPresent(jsonBodyReference, forKey: .jsonBodyReference)
         try container.encode(refreshInterval, forKey: .refreshInterval)
-    }
-
-    private func validateJSONBody() throws {
-        guard let jsonBody else { return }
-
-        do {
-            let jsonObject = try JSONSerialization.jsonObject(
-                with: Data(jsonBody.utf8),
-                options: [.fragmentsAllowed]
-            )
-            if let name = Self.credentialBearingKey(in: jsonObject) {
-                throw APIRequestConfigurationValidationError.prohibitedField(name: name, location: .jsonBody)
-            }
-        } catch let error as APIRequestConfigurationValidationError {
-            throw error
-        } catch {
-            throw APIRequestConfigurationValidationError.invalidJSONBody
-        }
-    }
-
-    private static func credentialBearingKey(in value: Any) -> String? {
-        if let dictionary = value as? [String: Any] {
-            for (key, nestedValue) in dictionary {
-                if isCredentialBearingFieldName(key) {
-                    return key
-                }
-                if let nestedKey = credentialBearingKey(in: nestedValue) {
-                    return nestedKey
-                }
-            }
-        }
-
-        if let array = value as? [Any] {
-            for item in array {
-                if let nestedKey = credentialBearingKey(in: item) {
-                    return nestedKey
-                }
-            }
-        }
-
-        return nil
-    }
-
-    private static func isCredentialBearingFieldName(_ name: String) -> Bool {
-        let normalized = name.lowercased().filter { $0.isLetter || $0.isNumber }
-        if normalized == "auth" {
-            return true
-        }
-
-        let prohibitedFragments = [
-            "authorization",
-            "authentication",
-            "apikey",
-            "token",
-            "secret",
-            "password",
-            "credential",
-            "bearer",
-            "privatekey",
-            "accesskey"
-        ]
-        return prohibitedFragments.contains { normalized.contains($0) }
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -173,7 +107,7 @@ public struct APIRequestConfiguration: Codable, Equatable, Sendable {
         case url
         case headers
         case queryItems
-        case jsonBody
+        case jsonBodyReference
         case refreshInterval
     }
 }
